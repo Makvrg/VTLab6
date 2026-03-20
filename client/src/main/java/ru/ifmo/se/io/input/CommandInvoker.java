@@ -1,0 +1,131 @@
+package ru.ifmo.se.io.input;
+
+import lombok.Getter;
+import ru.ifmo.se.commands.*;
+import ru.ifmo.se.dto.request.Request;
+import ru.ifmo.se.dto.response.Response;
+import ru.ifmo.se.event.ShutdownListener;
+import ru.ifmo.se.io.input.readers.Reader;
+import ru.ifmo.se.io.input.readers.factory.ReaderFactory;
+import ru.ifmo.se.io.input.readers.file.DataProvider;
+import ru.ifmo.se.io.output.formatter.StringFormatter;
+import ru.ifmo.se.io.output.print.Printer;
+import ru.ifmo.se.validator.ValidatorProvider;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+
+public class CommandInvoker {
+
+    private final DataProvider dataProvider;
+    private final ReaderFactory readerFactory;
+    private final List<Reader> inputManagerReaders;
+    private final StringFormatter formatter;
+    private final Map<String, Command> commands;
+    private String unknownCommandName;
+    @Getter
+    private String exitCommandName;
+
+    public CommandInvoker(DataProvider dataProvider,
+                          ReaderFactory readerFactory,
+                          ValidatorProvider validatorProvider,
+                          List<Reader> readers,
+                          StringFormatter formatter,
+                          Printer printer) {
+        this.dataProvider = dataProvider;
+        this.readerFactory = readerFactory;
+        this.inputManagerReaders = readers;
+        this.formatter = formatter;
+        commands = buildMapOfCommands(validatorProvider, printer);
+    }
+
+    public Request invokeMakeRequest(String commandName, String[] inputArgs) {
+        if (commands.containsKey(commandName)) {
+            return commands.get(commandName)
+                    .makeRequest(inputArgs,
+                            inputManagerReaders.get(
+                                    inputManagerReaders.size() - 1
+                            )
+                    );
+        } else {
+            return commands.get(unknownCommandName)
+                    .makeRequest(new String[]{commandName}, null);
+        }
+    }
+
+    public void invokeHandleResponse(String commandName, Response response) {
+        if (!commandName.equals(unknownCommandName) && commands.containsKey(commandName)) {
+            commands.get(commandName).handleResponse(response);
+        }
+    }
+
+    public void addListenersToExitCommand(List<ShutdownListener> listeners) {
+        ((ExitCommand) commands.get(exitCommandName)).addShutdownListeners(listeners);
+    }
+
+    private Map<String, Command> buildMapOfCommands(
+            ValidatorProvider validatorProvider,
+            Printer printer) {
+        Map<String, Command> commands = new LinkedHashMap<>();
+        Command currentCommand;
+        Function<Command, String> getCommandName = 
+                cmd -> cmd.getCommandSignature().split(" ")[0];
+        
+        currentCommand = new UnknownCommand(printer);
+        commands.put(getCommandName.apply(currentCommand), currentCommand);
+        unknownCommandName = getCommandName.apply(currentCommand);
+        
+        currentCommand = new HelpCommand(printer, formatter);
+        commands.put(getCommandName.apply(currentCommand), currentCommand);
+
+        currentCommand = new InfoCommand(printer, formatter);
+        commands.put(getCommandName.apply(currentCommand), currentCommand);
+
+        currentCommand = new ShowCommand(printer, formatter);
+        commands.put(getCommandName.apply(currentCommand), currentCommand);
+
+        currentCommand = new AddCommand(validatorProvider, printer, formatter);
+        commands.put(getCommandName.apply(currentCommand), currentCommand);
+
+        currentCommand = new UpdateByIdCommand(validatorProvider, printer, formatter);
+        commands.put(getCommandName.apply(currentCommand), currentCommand);
+
+        currentCommand = new RemoveByIdCommand(validatorProvider, printer);
+        commands.put(getCommandName.apply(currentCommand), currentCommand);
+
+        currentCommand = new ClearCommand(printer);
+        commands.put(getCommandName.apply(currentCommand), currentCommand);
+
+        currentCommand = new ExecuteScriptCommand(
+                dataProvider, readerFactory,
+                inputManagerReaders, printer, validatorProvider
+        );
+        commands.put(getCommandName.apply(currentCommand), currentCommand);
+
+        currentCommand = new ExitCommand(printer);
+        commands.put(getCommandName.apply(currentCommand), currentCommand);
+        exitCommandName = getCommandName.apply(currentCommand);
+
+        currentCommand = new AddIfMinCommand(validatorProvider, printer, formatter);
+        commands.put(getCommandName.apply(currentCommand), currentCommand);
+
+        currentCommand = new RemoveGreaterCommand(validatorProvider, printer, formatter);
+        commands.put(getCommandName.apply(currentCommand), currentCommand);
+
+        currentCommand = new RemoveLowerCommand(validatorProvider, printer, formatter);
+        commands.put(getCommandName.apply(currentCommand), currentCommand);
+
+        currentCommand = new MaxByEnginePowerCommand(printer, formatter);
+        commands.put(getCommandName.apply(currentCommand), currentCommand);
+
+        currentCommand = new GroupCountingByDistanceTravelledCommand(printer, formatter);
+        commands.put(getCommandName.apply(currentCommand), currentCommand);
+
+        currentCommand = new CountLessThanTypeCommand(validatorProvider, printer);
+        commands.put(getCommandName.apply(currentCommand), currentCommand);
+
+        return commands;
+    }
+}
