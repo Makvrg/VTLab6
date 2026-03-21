@@ -1,2 +1,3 @@
 "id","name","coordinates","creationDate","enginePower","distanceTravelled","type","fuelType"
 "1","Car","566:67","21-03-2026 01:17:47","6.0","6.0","CHOPPER","PLASMA"
+"2","Betmobil","5:8","21-03-2026 11:21:10","5123345.0","56777.0","CHOPPER","NUCLEAR"

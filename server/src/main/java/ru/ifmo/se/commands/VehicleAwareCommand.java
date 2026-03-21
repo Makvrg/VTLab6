@@ -2,7 +2,6 @@ package ru.ifmo.se.commands;
 
 import jakarta.validation.ConstraintViolation;
 import ru.ifmo.se.dto.entity.VehicleDto;
-import ru.ifmo.se.dto.entity.fieldnames.VehicleFieldNames;
 import ru.ifmo.se.entity.Vehicle;
 import ru.ifmo.se.io.output.formatter.StringFormatter;
 import ru.ifmo.se.validator.ValidatorProvider;

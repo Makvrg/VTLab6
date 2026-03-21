@@ -6,7 +6,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import ru.ifmo.se.dto.entity.VehicleDto;
 
-import java.io.Serializable;
 import java.util.List;
 
 @Getter

@@ -68,7 +68,7 @@ public class InputManager {
         }
     }
 
-    private void removeCurrentReader() {
+    public void removeCurrentReader() {
         readers.remove(readers.size() - 1);
 
         if (readers.size() == 1) {

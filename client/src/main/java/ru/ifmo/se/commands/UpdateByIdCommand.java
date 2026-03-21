@@ -32,7 +32,7 @@ public class UpdateByIdCommand extends VehicleAwareCommand {
             readManage();
         } catch (ExecuteScriptException e) {
             printer.forcePrintln(e.getMessage());
-            return null;
+            throw e;
         }
         return new RequestVehicleId(commandSignature.split(" ")[0],
                 vehicleDto, Long.valueOf(inputArgs[0]));

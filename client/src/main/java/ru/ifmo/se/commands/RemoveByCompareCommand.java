@@ -35,7 +35,7 @@ public abstract class RemoveByCompareCommand extends VehicleAwareCommand {
             readManage();
         } catch (ExecuteScriptException e) {
             printer.forcePrintln(e.getMessage());
-            return null;
+            throw e;
         }
         return new RequestVehicle(commandSignature.split(" ")[0], vehicleDto);
     }

@@ -61,7 +61,7 @@ public final class AppCompositionRoot {
     @Getter
     private final CommandInvoker commandInvoker =
             new CommandInvoker(dataProvider, readerFactory, validatorProvider,
-                    inputManager.getReaders(), formatter, printer
+                    formatter, printer, inputManager
             );
 
     @Getter

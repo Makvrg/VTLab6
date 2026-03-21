@@ -46,7 +46,7 @@ public class Pipeline implements Runnable, ShutdownListener {
                 printer.forcePrintln(e.getMessage() + "\nПовторите ввод");
                 continue;
             }
-            if (request == null) {  // Выполнилась команда, выполняемая локально
+            if (request == null) {
                 continue;
             }
 
@@ -54,7 +54,6 @@ public class Pipeline implements Runnable, ShutdownListener {
                 response = networkService.send(request);
             } catch (NetworkException e) {
                 printer.forcePrintln(e.getMessage());
-                // Выключение клиента командой Exit
                 /*commandInvoker.invokeMakeRequest(
                         commandInvoker.getExitCommandName(), inputArgs);*/
                 continue;

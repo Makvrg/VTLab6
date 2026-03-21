@@ -11,6 +11,7 @@ import ru.ifmo.se.io.input.readers.file.DataProvider;
 import ru.ifmo.se.io.output.formatter.StringFormatter;
 import ru.ifmo.se.io.output.print.Printer;
 import ru.ifmo.se.validator.ValidatorProvider;
+import ru.ifmo.se.validator.exceptions.ExecuteScriptException;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -21,7 +22,7 @@ public class CommandInvoker {
 
     private final DataProvider dataProvider;
     private final ReaderFactory readerFactory;
-    private final List<Reader> inputManagerReaders;
+    private final InputManager inputManager;
     private final StringFormatter formatter;
     private final Map<String, Command> commands;
     private String unknownCommandName;
@@ -31,24 +32,29 @@ public class CommandInvoker {
     public CommandInvoker(DataProvider dataProvider,
                           ReaderFactory readerFactory,
                           ValidatorProvider validatorProvider,
-                          List<Reader> readers,
                           StringFormatter formatter,
-                          Printer printer) {
+                          Printer printer,
+                          InputManager inputManager) {
         this.dataProvider = dataProvider;
         this.readerFactory = readerFactory;
-        this.inputManagerReaders = readers;
+        this.inputManager = inputManager;
         this.formatter = formatter;
         commands = buildMapOfCommands(validatorProvider, printer);
     }
 
     public Request invokeMakeRequest(String commandName, String[] inputArgs) {
         if (commands.containsKey(commandName)) {
-            return commands.get(commandName)
-                    .makeRequest(inputArgs,
-                            inputManagerReaders.get(
-                                    inputManagerReaders.size() - 1
-                            )
-                    );
+            try {
+                return commands.get(commandName)
+                        .makeRequest(inputArgs,
+                                inputManager.getReaders().get(
+                                        inputManager.getReaders().size() - 1
+                                )
+                        );
+            } catch (ExecuteScriptException e) {
+                inputManager.removeCurrentReader();
+                return null;
+            }
         } else {
             return commands.get(unknownCommandName)
                     .makeRequest(new String[]{commandName}, null);
@@ -100,7 +106,7 @@ public class CommandInvoker {
 
         currentCommand = new ExecuteScriptCommand(
                 dataProvider, readerFactory,
-                inputManagerReaders, printer, validatorProvider
+                inputManager.getReaders(), printer, validatorProvider
         );
         commands.put(getCommandName.apply(currentCommand), currentCommand);
 
