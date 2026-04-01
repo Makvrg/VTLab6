@@ -5,7 +5,6 @@ import ru.ifmo.se.commands.*;
 import ru.ifmo.se.dto.request.Request;
 import ru.ifmo.se.dto.response.Response;
 import ru.ifmo.se.event.ShutdownListener;
-import ru.ifmo.se.io.input.readers.Reader;
 import ru.ifmo.se.io.input.readers.factory.ReaderFactory;
 import ru.ifmo.se.io.input.readers.file.DataProvider;
 import ru.ifmo.se.io.output.formatter.StringFormatter;

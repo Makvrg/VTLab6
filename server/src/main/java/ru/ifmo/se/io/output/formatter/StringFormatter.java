@@ -4,6 +4,7 @@ import com.opencsv.exceptions.CsvDataTypeMismatchException;
 import com.opencsv.exceptions.CsvException;
 import com.opencsv.exceptions.CsvRequiredFieldEmptyException;
 import jakarta.validation.ConstraintViolation;
+import ru.ifmo.se.io.input.readers.Reader;
 
 import java.util.List;
 import java.util.Set;
@@ -46,6 +47,22 @@ public class StringFormatter {
         }
         if (!sb.isEmpty()) {
             sb.delete(sb.length() - 1, sb.length());
+        }
+        return sb.toString();
+    }
+
+    public String formatCurrentReaderInfo(List<Reader> readers) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Активен режим чтения ");
+        if (readers.size() == 1) {
+            sb.append("терминала");
+        } else {
+            sb.append(
+                    String.format(
+                            "файла %s",
+                            readers.get(readers.size() - 1).getName()
+                    )
+            );
         }
         return sb.toString();
     }

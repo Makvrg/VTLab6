@@ -7,25 +7,29 @@ import ru.ifmo.se.event.ShutdownListener;
 import ru.ifmo.se.io.input.CommandInvoker;
 import ru.ifmo.se.logger.AppLogger;
 import ru.ifmo.se.serializator.Serializator;
+import ru.ifmo.se.udp.*;
 
-import java.io.IOException;
 import java.net.BindException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 
 @RequiredArgsConstructor
 public class NetworkService implements Runnable, ShutdownListener {
 
-    private boolean shutdown = false;
-    private static final int REQUEST_BUFFER_SIZE = 16384;
-    private int commandCounter = 0;
+    private volatile boolean shutdown = false;
+    private static final int BUFFER_SIZE = 2048;
 
     private final CommandInvoker commandInvoker;
+
+    private final Map<Long, ReassemblyBuffer> incoming = new HashMap<>();
 
     public void run() {
         try (DatagramChannel channel = DatagramChannel.open();
@@ -35,15 +39,11 @@ public class NetworkService implements Runnable, ShutdownListener {
             channel.bind(new InetSocketAddress("0.0.0.0", 56789));
             channel.register(selector, SelectionKey.OP_READ);
 
-            ByteBuffer buffer = ByteBuffer.allocate(REQUEST_BUFFER_SIZE);
+            ByteBuffer buffer = ByteBuffer.allocate(BUFFER_SIZE);
 
-            AppLogger.LOGGER.info("Сервер запущен в однопоточном режиме");
+            AppLogger.LOGGER.info("UDP сервер запущен");
 
             while (!shutdown) {
-                if (commandCounter == 3) {
-                    saveCollection();
-                    commandCounter = 0;
-                }
                 selector.select();
 
                 Iterator<SelectionKey> iterator = selector.selectedKeys().iterator();
@@ -52,9 +52,7 @@ public class NetworkService implements Runnable, ShutdownListener {
                     SelectionKey key = iterator.next();
                     iterator.remove();
 
-                    if (!key.isReadable()) {
-                        continue;
-                    }
+                    if (!key.isReadable()) continue;
 
                     DatagramChannel readyChannel = (DatagramChannel) key.channel();
 
@@ -62,86 +60,64 @@ public class NetworkService implements Runnable, ShutdownListener {
                     InetSocketAddress clientAddress =
                             (InetSocketAddress) readyChannel.receive(buffer);
 
-                    if (clientAddress == null) {
-                        continue;
-                    }
+                    if (clientAddress == null) continue;
 
                     buffer.flip();
 
+                    UdpFrame frame;
+                    try {
+                        frame = UdpCodec.decode(buffer);
+                    } catch (Exception e) {
+                        continue;
+                    }
+
+                    ReassemblyBuffer reassembly = incoming.computeIfAbsent(
+                            frame.messageId(),
+                            id -> new ReassemblyBuffer(frame.chunkCount())
+                    );
+
+                    reassembly.addChunk(frame.chunkIndex(), frame.payload());
+
+                    if (!reassembly.isComplete()) continue;
+
+                    incoming.remove(frame.messageId());
+
                     Request request;
                     try {
-                        request = (Request) Serializator.deserialize(buffer);
+                        byte[] raw = reassembly.assemble();
+                        request = (Request) Serializator.deserialize(ByteBuffer.wrap(raw));
                     } catch (Exception e) {
-                        AppLogger.LOGGER.log(
-                                Level.SEVERE,
-                                String.format(
-                                        "Ошибка десериализации от %s",
-                                        clientAddress
-                                )
-                        );
+                        AppLogger.LOGGER.log(Level.SEVERE, "Ошибка десериализации запроса", e);
                         continue;
                     }
 
-                    AppLogger.LOGGER.info(
-                            String.format("Получен запрос от %s с командой: %s",
-                                    clientAddress, request.getCommandName()));
+                    Response response = commandInvoker.invokeCommand(request);
 
-                    Response response;
-                    try {
-                        response = commandInvoker.invokeCommand(request);
-                    } catch (Exception e) {
-                        AppLogger.LOGGER.log(
-                                Level.SEVERE,
-                                String.format(
-                                        "Ошибка выполнения команды %s",
-                                        request.getCommandName()
-                                ), e
-                        );
-                        continue;
-                    }
-                    if (response == null) {
-                        continue;
-                    }
-                    byte[] data;
-                    try {
-                        data = Serializator.serialize(response);
-                    } catch (Exception e) {
-                    AppLogger.LOGGER.log(
-                            Level.SEVERE,
-                            String.format(
-                                    "Ошибка сериализации от %s",
-                                    clientAddress
-                            )
+                    byte[] responseBytes = Serializator.serialize(response);
+
+                    List<byte[]> frames = UdpChunker.split(
+                            responseBytes,
+                            PacketType.RESPONSE,
+                            frame.messageId()
                     );
-                    continue;
+
+                    for (byte[] f : frames) {
+                        readyChannel.send(ByteBuffer.wrap(f), clientAddress);
                     }
-                    ByteBuffer responseBuffer = ByteBuffer.wrap(data);
 
-                    readyChannel.send(responseBuffer, clientAddress);
-                    commandCounter++;
-
-                    AppLogger.LOGGER.info(
-                            String.format(
-                                    "Ответ отправлен клиенту %s",
-                                    clientAddress
-                            )
-                    );
+                    AppLogger.LOGGER.info("Ответ отправлен клиенту " + clientAddress);
                 }
             }
         } catch (BindException e) {
             AppLogger.LOGGER.log(Level.SEVERE,"Порт уже занят");
-            System.exit(1);
-        } catch (IOException e) {
+        } catch (Exception e) {
             AppLogger.LOGGER.log(Level.SEVERE,"Ошибка сети", e);
         }
-    }
-
-    private void saveCollection() {
-        commandInvoker.invokeLocalCommand(commandInvoker.getSaveCommandName());
     }
 
     @Override
     public void onShutdown() {
         shutdown = true;
+        System.exit(0);
     }
 }

@@ -8,6 +8,7 @@ import ru.ifmo.se.entity.Vehicle;
 import ru.ifmo.se.io.input.env.EnvVariableProvider;
 import ru.ifmo.se.io.output.filewriter.FileWriter;
 import ru.ifmo.se.io.output.formatter.StringFormatter;
+import ru.ifmo.se.io.output.print.Printer;
 import ru.ifmo.se.service.CollectionService;
 import ru.ifmo.se.validator.ValidatorProvider;
 
@@ -26,13 +27,15 @@ public class CommandInvoker {
                           CollectionService collectionService,
                           StringFormatter formatter,
                           FileWriter<Vehicle> fileWriter,
-                          EnvVariableProvider envProvider) {
+                          EnvVariableProvider envProvider,
+                          Printer printer) {
         commands = buildMapOfCommands(
                 collectionService,
                 validatorProvider,
                 fileWriter,
                 formatter,
-                envProvider
+                envProvider,
+                printer
         );
     }
 
@@ -58,7 +61,8 @@ public class CommandInvoker {
             ValidatorProvider validatorProvider,
             FileWriter<Vehicle> fileWriter,
             StringFormatter formatter,
-            EnvVariableProvider envProvider) {
+            EnvVariableProvider envProvider,
+            Printer printer) {
         Map<String, Command> commands = new LinkedHashMap<>();
         Command currentCommand;
         Function<Command, String> getCommandName = 
@@ -72,6 +76,9 @@ public class CommandInvoker {
         commands.put(getCommandName.apply(currentCommand), currentCommand);
 
         currentCommand = new InfoCommand(collectionService);
+        commands.put(getCommandName.apply(currentCommand), currentCommand);
+
+        currentCommand = new ExitCommand(printer, collectionService);
         commands.put(getCommandName.apply(currentCommand), currentCommand);
 
         currentCommand = new ShowCommand(collectionService);

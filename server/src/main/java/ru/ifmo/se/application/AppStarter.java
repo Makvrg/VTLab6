@@ -16,6 +16,10 @@ public class AppStarter {
                           .addShutdownListener(
                                   appCompositionRoot.getNetworkService()
                 );
+        appCompositionRoot.getCollectionService()
+                .addShutdownListener(
+                        appCompositionRoot.getTerminalPipeline()
+                );
         try {
             appCompositionRoot.getCollectionInitializer().initialize();
         } catch (IOException e) {
@@ -25,6 +29,15 @@ public class AppStarter {
                             + e.getMessage()
             );
         }
-        appCompositionRoot.getNetworkService().run();
+        Thread networkThread = new Thread(() ->
+                appCompositionRoot.getNetworkService().run()
+        );
+
+        Thread inputThread = new Thread(() ->
+                appCompositionRoot.getTerminalPipeline().run()
+        );
+
+        networkThread.start();
+        inputThread.start();
     }
 }

@@ -5,14 +5,18 @@ import ru.ifmo.se.collection.CollectionWithInfo;
 import ru.ifmo.se.entity.Vehicle;
 import ru.ifmo.se.io.input.CollectionInitializer;
 import ru.ifmo.se.io.input.CommandInvoker;
+import ru.ifmo.se.io.input.TerminalInputManager;
 import ru.ifmo.se.io.input.env.EnvVariableProvider;
 import ru.ifmo.se.io.input.fileparser.FileParser;
 import ru.ifmo.se.io.input.fileparser.VehicleCsvParser;
 import ru.ifmo.se.io.input.fileprovider.DataProvider;
 import ru.ifmo.se.io.input.fileprovider.FileProvider;
+import ru.ifmo.se.io.input.readers.Reader;
+import ru.ifmo.se.io.input.readers.factory.ReaderFactory;
 import ru.ifmo.se.io.output.filewriter.FileWriter;
 import ru.ifmo.se.io.output.filewriter.VehicleCsvWriter;
 import ru.ifmo.se.io.output.formatter.StringFormatter;
+import ru.ifmo.se.io.output.print.Printer;
 import ru.ifmo.se.network.NetworkService;
 import ru.ifmo.se.repository.CollectionRepository;
 import ru.ifmo.se.service.CollectionService;
@@ -67,14 +71,27 @@ public final class AppCompositionRoot {
                     formatter
             );
 
+    private final Printer printer = new Printer();
+
     private final CommandInvoker commandInvoker =
             new CommandInvoker(
                     validatorProvider,
                     collectionService,
                     formatter,
                     csvWriter,
-                    envProvider
+                    envProvider,
+                    printer
             );
+
+    private final ReaderFactory readerFactory = new ReaderFactory();
+    private final Reader reader =
+            readerFactory.createTerminalReader("Main Terminal");
+
+    private final TerminalInputManager terminalInputManager =
+            new TerminalInputManager(reader, printer, formatter);
+    @Getter
+    private final TerminalPipeline terminalPipeline =
+            new TerminalPipeline(printer, terminalInputManager, commandInvoker);
 
     @Getter
     private final NetworkService networkService =
