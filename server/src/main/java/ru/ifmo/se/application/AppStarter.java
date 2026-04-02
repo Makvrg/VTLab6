@@ -1,9 +1,9 @@
 package ru.ifmo.se.application;
 
+import ru.ifmo.se.io.input.exceptions.CollectionInitFromDbException;
 import ru.ifmo.se.io.output.CollectionActionsMessages;
 import ru.ifmo.se.logger.AppLogger;
 
-import java.io.IOException;
 import java.util.logging.Level;
 
 public class AppStarter {
@@ -22,7 +22,7 @@ public class AppStarter {
                 );
         try {
             appCompositionRoot.getCollectionInitializer().initialize();
-        } catch (IOException e) {
+        } catch (CollectionInitFromDbException e) {
             AppLogger.LOGGER.log(
                     Level.SEVERE,
                     CollectionActionsMessages.VEHICLE_INIT_OPEN_FILE_EXC

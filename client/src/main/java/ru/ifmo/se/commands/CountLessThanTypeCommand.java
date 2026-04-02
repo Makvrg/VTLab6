@@ -8,6 +8,7 @@ import ru.ifmo.se.dto.response.ResponseCount;
 import ru.ifmo.se.io.input.readers.Reader;
 import ru.ifmo.se.io.output.print.Printer;
 import ru.ifmo.se.io.output.translator.Translator;
+import ru.ifmo.se.usercontext.UserContext;
 import ru.ifmo.se.validator.ValidatorProvider;
 
 public class CountLessThanTypeCommand extends Command {
@@ -28,7 +29,8 @@ public class CountLessThanTypeCommand extends Command {
         validateArgs(inputArgs);
         return new RequestType(
                 commandSignature.split(" ")[0],
-                VehicleTypeDto.valueOf(Translator.translateToEngOrSelf(inputArgs[0]))
+                VehicleTypeDto.valueOf(Translator.translateToEngOrSelf(inputArgs[0])),
+                UserContext.getCurrentUser()
         );
     }
 

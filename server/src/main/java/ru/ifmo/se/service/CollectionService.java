@@ -1,19 +1,25 @@
 package ru.ifmo.se.service;
 
 import lombok.RequiredArgsConstructor;
+import ru.ifmo.se.db.DbConnectionManager;
 import ru.ifmo.se.dto.supporting.CollectionInfoDto;
+import ru.ifmo.se.entity.User;
 import ru.ifmo.se.entity.Vehicle;
 import ru.ifmo.se.entity.VehicleType;
 import ru.ifmo.se.event.ShutdownListener;
-import ru.ifmo.se.repository.CollectionRepository;
+import ru.ifmo.se.passwordhasher.PasswordHasher;
+import ru.ifmo.se.repository.DataRepository;
 import ru.ifmo.se.service.exceptions.*;
 
+import java.security.NoSuchAlgorithmException;
+import java.sql.SQLException;
 import java.util.*;
 
 @RequiredArgsConstructor
 public class CollectionService {
 
-    private final CollectionRepository collectionRepository;
+    private final DataRepository dataRepository;
+    private final DbConnectionManager connectionManager;
     private final List<ShutdownListener> listeners = new ArrayList<>();
 
     public boolean exit() {
@@ -21,91 +27,234 @@ public class CollectionService {
         return true;
     }
 
+    public boolean registration(User newUser, String rawPassword) {
+        try {
+            connectionManager.beginTransaction(8);
+
+            for (User user : dataRepository.findAllUsers()) {
+                if (newUser.getUsername().equals(user.getUsername())) {
+                    return false;
+                }
+            }
+
+            newUser.setId(createNewUserId());
+            String salt = PasswordHasher.generateSalt();
+            newUser.setSalt(salt);
+            try {
+                newUser.setHashedPassword(PasswordHasher.hashPassword(rawPassword, salt));
+            } catch (NoSuchAlgorithmException e) {
+                throw new NoSuchAlgorithmRuntimeException("Не найден алгоритм хеширования" +
+                        e.getMessage());
+            }
+            return dataRepository.add(newUser);
+        } catch (SQLException e) {
+            throw new SQLRuntimeException(e.getMessage());
+        } finally {
+            try {
+                connectionManager.commit();
+                connectionManager.close();
+            } catch (SQLException e) {
+                throw new SQLRuntimeException(e.getMessage());
+            }
+        }
+    }
+
+    public boolean auth(User enteredUser, String rawPassword) {
+        try {
+            connectionManager.beginTransaction(8);
+
+            for (User user: dataRepository.findAllUsers()) {
+                if (enteredUser.getUsername().equals(user.getUsername())) {
+                    try {
+                        return PasswordHasher.verifyPassword(
+                                rawPassword, user.getSalt(), user.getHashedPassword());
+                    } catch (NoSuchAlgorithmException e) {
+                        throw new NoSuchAlgorithmRuntimeException(
+                                "Не найден алгоритм хеширования" + e.getMessage());
+                    }
+                }
+            }
+            return false;
+        } catch (SQLException e) {
+            throw new SQLRuntimeException(e.getMessage());
+        } finally {
+            try {
+                connectionManager.commit();
+                connectionManager.close();
+            } catch (SQLException e) {
+                throw new SQLRuntimeException(e.getMessage());
+            }
+        }
+    }
+
     public CollectionInfoDto info() {
         return new CollectionInfoDto(
-                collectionRepository.getCollectionType().getSimpleName(),
-                collectionRepository.getInitializationDate(),
-                collectionRepository.getElementsType().getSimpleName(),
-                collectionRepository.getCountOfElements()
+                dataRepository.getCollectionType().getSimpleName(),
+                dataRepository.getInitializationDate(),
+                dataRepository.getElementsType().getSimpleName(),
+                dataRepository.getCountOfElements()
         );
     }
 
-    public boolean add(Vehicle vehicle) {
-        vehicle.setId(createNewId());
-        vehicle.setCreationDate(new Date());
-        return collectionRepository.add(vehicle);
+    public boolean add(Vehicle vehicle, String username) {
+        try {
+            connectionManager.beginTransaction(8);
+            vehicle.setId(createNewVehicleId());
+            vehicle.setCreationDate(new Date());
+            Optional<Long> userId = dataRepository.findUserIdByUsername(username);
+            if (userId.isPresent()) {
+                vehicle.setUserId(userId.get());
+            } else {
+                return false;
+            }
+            return dataRepository.add(vehicle);
+        } catch (SQLException e) {
+            throw new SQLRuntimeException(e.getMessage());
+        } finally {
+            try {
+                connectionManager.commit();
+                connectionManager.close();
+            } catch (SQLException e) {
+                throw new SQLRuntimeException(e.getMessage());
+            }
+        }
     }
 
     public boolean addInitVehicle(Vehicle vehicle) {
-        if (collectionRepository.existsById(vehicle.getId())) {
-            throw new NonUniqueIdException("Передан уже существующий id");
+        try {
+            connectionManager.beginTransaction(8);
+            if (vehicle.getCreationDate().after(new Date())) {
+                throw new CreationDateIsAfterNowException(
+                        "Передана дата и время создания объекта Vehicle из будущего");
+            }
+            return dataRepository.add(vehicle);
+        } catch (SQLException e) {
+            throw new SQLRuntimeException(e.getMessage());
+        } finally {
+            try {
+                connectionManager.commit();
+                connectionManager.close();
+            } catch (SQLException e) {
+                throw new SQLRuntimeException(e.getMessage());
+            }
         }
-        if (vehicle.getCreationDate().after(new Date())) {
-            throw new CreationDateIsAfterNowException(
-                    "Передана дата и время создания объекта Vehicle из будущего");
-        }
-        return collectionRepository.add(vehicle);
     }
 
-    private long createNewId() {
+    private long createNewVehicleId() {
         try {
-            return collectionRepository.findMaxId() + 1L;
+            return dataRepository.findVehicleMaxId() + 1L;
         } catch (MaxIdNotExistException e) {
             return 1L;
         }
     }
 
-    public boolean addIfMin(Vehicle vehicle) {
-        Optional<Vehicle> minVehicle = collectionRepository.findMinVehicle();
+    private long createNewUserId() {
+        try {
+            return dataRepository.findUserMaxId() + 1L;
+        } catch (MaxIdNotExistException e) {
+            return 1L;
+        }
+    }
+
+    public boolean addIfMin(Vehicle vehicle, String username) {
+        Optional<Vehicle> minVehicle = dataRepository.findMinVehicle();
         if (minVehicle.isPresent() && vehicle.compareTo(minVehicle.get()) < 0) {
-            return add(vehicle);
+            return add(vehicle, username);
         } else if (minVehicle.isEmpty()) {
-            return add(vehicle);
+            return add(vehicle, username);
         } else {
             return false;
         }
     }
 
     public boolean updateById(Vehicle vehicle, Long id) {
-        return collectionRepository.updateById(id, vehicle);
-    }
-
-    public Collection<Vehicle> show() {
-        return collectionRepository.findAll();
-    }
-
-    public boolean removeById(long id) {
         try {
-            return collectionRepository.deleteById(id);
-        } catch (IllegalStateException e) {
-            throw new RemoveByIdIllegalStateException(e.getMessage());
+            connectionManager.beginTransaction(4);
+            return dataRepository.updateById(id, vehicle);
+        } catch (SQLException e) {
+            throw new SQLRuntimeException(e.getMessage());
+        } finally {
+            try {
+                connectionManager.commit();
+                connectionManager.close();
+            } catch (SQLException e) {
+                throw new SQLRuntimeException(e.getMessage());
+            }
         }
     }
 
-    public boolean clear() {
-        return collectionRepository.deleteAll();
+    public Collection<Vehicle> showVehicles() {
+        return dataRepository.findAllVehicles();
     }
 
-    public Collection<Vehicle> getVehiclesForSave() {
-        return collectionRepository.findAll();
+    public boolean removeVehicleById(long id) {
+        try {
+            connectionManager.beginTransaction(4);
+            try {
+                return dataRepository.deleteVehicleById(id);
+            } catch (IllegalStateException e) {
+                throw new RemoveByIdIllegalStateException(e.getMessage());
+            }
+        } catch (SQLException e) {
+            throw new SQLRuntimeException(e.getMessage());
+        } finally {
+            try {
+                connectionManager.commit();
+                connectionManager.close();
+            } catch (SQLException e) {
+                throw new SQLRuntimeException(e.getMessage());
+            }
+        }
     }
 
-    public boolean removeGreater(Vehicle vehicle) {
+    public boolean clearVehicles() {
+        try {
+            connectionManager.beginTransaction(8);
+            return dataRepository.deleteAllVehicles();
+        } catch (SQLException e) {
+            throw new SQLRuntimeException(e.getMessage());
+        } finally {
+            try {
+                connectionManager.commit();
+                connectionManager.close();
+            } catch (SQLException e) {
+                throw new SQLRuntimeException(e.getMessage());
+            }
+        }
+    }
+
+    public Collection<Vehicle> findAllVehiclesFromDb() {
+        try {
+            connectionManager.beginTransaction(8);
+            return dataRepository.findAllVehiclesFromDb();
+        } catch (SQLException e) {
+            throw new SQLRuntimeException(e.getMessage());
+        } finally {
+            try {
+                connectionManager.commit();
+                connectionManager.close();
+            } catch (SQLException e) {
+                throw new SQLRuntimeException(e.getMessage());
+            }
+        }
+    }
+
+    public boolean removeGreater(Vehicle enteredVehicle) {
         boolean returned = false;
-        for (Iterator<Vehicle> itr = collectionRepository.findAll().iterator(); itr.hasNext(); ) {
-            if (itr.next().compareTo(vehicle) > 0) {
-                itr.remove();
+        for (Vehicle vehicle : dataRepository.findAllVehicles()) {
+            if (vehicle.compareTo(enteredVehicle) > 0) {
+                removeVehicleById(vehicle.getId());
                 returned = true;
             }
         }
         return returned;
     }
 
-    public boolean removeLower(Vehicle vehicle) {
+    public boolean removeLower(Vehicle enteredVehicle) {
         boolean returned = false;
-        for (Iterator<Vehicle> itr = collectionRepository.findAll().iterator(); itr.hasNext(); ) {
-            if (itr.next().compareTo(vehicle) < 0) {
-                itr.remove();
+        for (Vehicle vehicle : dataRepository.findAllVehicles()) {
+            if (vehicle.compareTo(enteredVehicle) < 0) {
+                removeVehicleById(vehicle.getId());
                 returned = true;
             }
         }
@@ -115,15 +264,15 @@ public class CollectionService {
     public Optional<Vehicle> maxByEnginePower() {
         double maxEnginePower;
         try {
-            maxEnginePower = collectionRepository.findMaxEnginePower();
+            maxEnginePower = dataRepository.findMaxEnginePower();
         } catch (MaxEnginePowerNotExistException e) {
             return Optional.empty();
         }
-        return collectionRepository.findVehicleByEnginePower(maxEnginePower);
+        return dataRepository.findVehicleByEnginePower(maxEnginePower);
     }
 
     public Map<Float, Integer> groupCountingByDistanceTravelled() {
-        Map<Float, List<Vehicle>> groups = collectionRepository.groupByDistanceTravelled();
+        Map<Float, List<Vehicle>> groups = dataRepository.groupByDistanceTravelled();
         HashMap<Float, Integer> counts = new HashMap<>();
         for (Map.Entry<Float, List<Vehicle>> entry : groups.entrySet()) {
             counts.put(entry.getKey(), entry.getValue().size());
@@ -132,13 +281,13 @@ public class CollectionService {
     }
 
     public long countLessThanType(VehicleType vehicleType) {
-        return collectionRepository.findAll().stream()
+        return dataRepository.findAllVehicles().stream()
                 .filter(vehicle -> vehicle.getType().compareTo(vehicleType) < 0)
                 .count();
     }
 
     public int getCountElementsCollection() {
-        return collectionRepository.getCountOfElements();
+        return dataRepository.getCountOfElements();
     }
 
     public void addShutdownListener(ShutdownListener listener) {

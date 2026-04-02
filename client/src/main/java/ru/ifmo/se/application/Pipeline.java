@@ -13,6 +13,8 @@ import ru.ifmo.se.io.input.readers.InputTextHandler;
 import ru.ifmo.se.io.output.print.Printer;
 import ru.ifmo.se.network.NetworkException;
 import ru.ifmo.se.network.NetworkService;
+import ru.ifmo.se.usercontext.UserContext;
+import ru.ifmo.se.usercontext.UserType;
 
 @RequiredArgsConstructor
 public class Pipeline implements Runnable, ShutdownListener {
@@ -23,24 +25,28 @@ public class Pipeline implements Runnable, ShutdownListener {
     private final NetworkService networkService;
     private boolean shutdown = false;
 
-    private String[] input;
-    private String commandName;
-    private String[] inputArgs;
-    private Request request;
-    private Response response;
-
     public void run() {
         printer.forcePrintln("Приложение запускается");
         while (!shutdown) {
+            String[] input;
             try {
                 input = inputManager.readInput();
             } catch (EndOfFileException | IORuntimeException e) {
                 continue;
             }
-            commandName = InputTextHandler.parseCommandName(input);
-            inputArgs = InputTextHandler.parseInputArgs(input);
+            String commandName = InputTextHandler.parseCommandName(input);
+            String[] inputArgs = InputTextHandler.parseInputArgs(input);
 
+            Request request;
             try {
+                if (UserContext.getCurrentUserType() == UserType.GUEST &&
+                        !commandName.equals(commandInvoker.getRegCommandName()) &&
+                        !commandName.equals(commandInvoker.getAuthCommandName())) {
+                    printer.forcePrintln(
+                            "Для этой команды необходимо пройти аутентификацию"
+                    );
+                    continue;
+                }
                 request = commandInvoker.invokeMakeRequest(commandName, inputArgs);
             } catch (InputArgsValidationException e) {
                 printer.forcePrintln(e.getMessage() + "\nПовторите ввод");
@@ -50,12 +56,11 @@ public class Pipeline implements Runnable, ShutdownListener {
                 continue;
             }
 
+            Response response;
             try {
                 response = networkService.send(request);
             } catch (NetworkException e) {
                 printer.forcePrintln(e.getMessage());
-                /*commandInvoker.invokeMakeRequest(
-                        commandInvoker.getExitCommandName(), inputArgs);*/
                 continue;
             }
             commandInvoker.invokeHandleResponse(commandName, response);

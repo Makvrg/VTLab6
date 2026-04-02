@@ -27,6 +27,10 @@ public class CommandInvoker {
     private String unknownCommandName;
     @Getter
     private String exitCommandName;
+    @Getter
+    private String regCommandName;
+    @Getter
+    private String authCommandName;
 
     public CommandInvoker(DataProvider dataProvider,
                           ReaderFactory readerFactory,
@@ -84,6 +88,14 @@ public class CommandInvoker {
         
         currentCommand = new HelpCommand(printer, formatter);
         commands.put(getCommandName.apply(currentCommand), currentCommand);
+
+        currentCommand = new RegistrationCommand(printer, validatorProvider);
+        commands.put(getCommandName.apply(currentCommand), currentCommand);
+        regCommandName = getCommandName.apply(currentCommand);
+
+        currentCommand = new AuthCommand(printer, validatorProvider);
+        commands.put(getCommandName.apply(currentCommand), currentCommand);
+        authCommandName = getCommandName.apply(currentCommand);
 
         currentCommand = new InfoCommand(printer, formatter);
         commands.put(getCommandName.apply(currentCommand), currentCommand);

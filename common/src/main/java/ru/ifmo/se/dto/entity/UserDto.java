@@ -1,10 +1,9 @@
-package ru.ifmo.se.dto.request;
+package ru.ifmo.se.dto.entity;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import ru.ifmo.se.dto.entity.UserDto;
 
 import java.io.Serializable;
 
@@ -12,8 +11,9 @@ import java.io.Serializable;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class Request implements Serializable {
+public class UserDto implements Serializable {
 
-    private String commandName;
-    private UserDto userDto;
+    private Long id;
+    private String username;
+    private String password;
 }

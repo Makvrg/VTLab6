@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import ru.ifmo.se.dto.entity.UserDto;
 import ru.ifmo.se.dto.entity.VehicleTypeDto;
 
 @Getter
@@ -13,8 +14,9 @@ import ru.ifmo.se.dto.entity.VehicleTypeDto;
 public class RequestType extends Request{
 
     public RequestType(String commandName,
-                       VehicleTypeDto vehicleTypeDto) {
-        super(commandName);
+                       VehicleTypeDto vehicleTypeDto,
+                       UserDto userDto) {
+        super(commandName, userDto);
         this.vehicleTypeDto = vehicleTypeDto;
     }
 

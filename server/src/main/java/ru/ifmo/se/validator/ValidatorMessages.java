@@ -61,6 +61,15 @@ public class ValidatorMessages {
     public static final String FUEL_TYPE_MUST_BE_NOT_NULL =
             "Тип топлива должен быть указан";
 
+    public static final String USER_ID_MUST_BE_NOT_NULL =
+            "Id пользователя, создателя объекта, не должно быть пустым";
+
     public static final String PARAMETER_FILE_NAME_NOT_PASSED =
             "Не введено название файла";
+
+    public static final String USERNAME_BE_NON_BLANK =
+            "Имя пользователя не должно быть пустым";
+
+    public static final String PASSWORD_LEN_IS_SHORT =
+            "Пароль должен состоять хотя бы из 8 непробельных символов";
 }

@@ -3,15 +3,17 @@ package ru.ifmo.se.repository;
 import lombok.RequiredArgsConstructor;
 import ru.ifmo.se.collection.CollectionWithInfo;
 import ru.ifmo.se.entity.Vehicle;
+import ru.ifmo.se.entity.User;
 import ru.ifmo.se.service.exceptions.MaxEnginePowerNotExistException;
 import ru.ifmo.se.service.exceptions.MaxIdNotExistException;
 
 import java.util.*;
 
 @RequiredArgsConstructor
-public class CollectionRepository {
+public class DataRepository {
 
     private final CollectionWithInfo collectionWithInfo;
+    private final DbRepository dbRepository;
 
     public Class<?> getCollectionType() {
         return collectionWithInfo.getCollectionType();
@@ -29,16 +31,7 @@ public class CollectionRepository {
         return collectionWithInfo.getCountOfElements();
     }
 
-    public boolean existsById(Long id) {
-        for (Vehicle vehicle : collectionWithInfo.getCollection()) {
-            if (vehicle.getId() == id) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public long findMaxId() {
+    public long findVehicleMaxId() {
         if (collectionWithInfo.getCountOfElements() > 0) {
             return collectionWithInfo.getCollection().stream()
                     .mapToLong(Vehicle::getId)
@@ -48,8 +41,26 @@ public class CollectionRepository {
         throw new MaxIdNotExistException();
     }
 
+    public long findUserMaxId() {
+        return findAllUsers().stream()
+                .mapToLong(User::getId)
+                .max()
+                .orElseThrow(MaxIdNotExistException::new);
+    }
+
+    public Optional<Long> findUserIdByUsername(String username) {
+        return dbRepository.findUserIdByUsername(username);
+    }
+
     public boolean add(Vehicle vehicle) {
-        return collectionWithInfo.getCollection().add(vehicle);
+        if (dbRepository.add(vehicle)) {
+            return collectionWithInfo.getCollection().add(vehicle);
+        }
+        return false;
+    }
+
+    public boolean add(User user) {
+        return dbRepository.add(user);
     }
 
     public Optional<Vehicle> findMinVehicle() {
@@ -81,11 +92,14 @@ public class CollectionRepository {
     }
 
     public boolean updateById(long id, Vehicle newData) {
-        for (Vehicle vehicle : collectionWithInfo.getCollection()) {
-            if (vehicle.getId() == id) {
-                updateVehicle(vehicle, newData);
-                return true;
+        if (dbRepository.updateById(newData, id)) {
+            for (Vehicle vehicle : collectionWithInfo.getCollection()) {
+                if (vehicle.getId() == id) {
+                    updateVehicle(vehicle, newData);
+                    return true;
+                }
             }
+            return false;
         }
         return false;
     }
@@ -99,23 +113,37 @@ public class CollectionRepository {
         targetVehicle.setFuelType(newData.getFuelType());
     }
 
-    public Collection<Vehicle> findAll() {
+    public Collection<Vehicle> findAllVehicles() {
         return collectionWithInfo.getCollection();
     }
 
-    public boolean deleteById(long id) {
-        for (Iterator<Vehicle> itr = collectionWithInfo.getCollection().iterator(); itr.hasNext(); ) {
-            if (itr.next().getId() == id) {
-                itr.remove();
-                return true;
+    public Collection<Vehicle> findAllVehiclesFromDb() {
+        return dbRepository.findAllVehicle();
+    }
+
+    public Collection<User> findAllUsers() {
+        return dbRepository.findAllUser();
+    }
+
+    public boolean deleteVehicleById(long id) {
+        if (dbRepository.deleteVehicleById(id)) {
+            for (Iterator<Vehicle> itr = collectionWithInfo.getCollection().iterator(); itr.hasNext(); ) {
+                if (itr.next().getId() == id) {
+                    itr.remove();
+                    return true;
+                }
             }
+            return false;
         }
         return false;
     }
 
-    public boolean deleteAll() {
-        collectionWithInfo.getCollection().clear();
-        return true;
+    public boolean deleteAllVehicles() {
+        if (dbRepository.truncateVehicles()) {
+            collectionWithInfo.getCollection().clear();
+            return true;
+        }
+        return false;
     }
 
     public Map<Float, List<Vehicle>> groupByDistanceTravelled() {

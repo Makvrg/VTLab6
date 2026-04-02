@@ -13,7 +13,8 @@ public enum VehicleFieldNames {
     ENGINE_POWER("enginePower"),
     DISTANCE_TRAVELLED("distanceTravelled"),
     TYPE("type"),
-    FUEL_TYPE("fuelType");
+    FUEL_TYPE("fuelType"),
+    USER_ID("userId");
 
     private final String title;
 

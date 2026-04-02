@@ -8,6 +8,7 @@ import ru.ifmo.se.dto.response.Response;
 import ru.ifmo.se.io.input.readers.Reader;
 import ru.ifmo.se.io.output.formatter.StringFormatter;
 import ru.ifmo.se.io.output.print.Printer;
+import ru.ifmo.se.usercontext.UserContext;
 import ru.ifmo.se.validator.ValidatorProvider;
 import ru.ifmo.se.validator.exceptions.ExecuteScriptException;
 
@@ -34,8 +35,9 @@ public class UpdateByIdCommand extends VehicleAwareCommand {
             printer.forcePrintln(e.getMessage());
             throw e;
         }
-        return new RequestVehicleId(commandSignature.split(" ")[0],
-                vehicleDto, Long.valueOf(inputArgs[0]));
+        return new RequestVehicleId(
+                commandSignature.split(" ")[0],
+                vehicleDto, Long.valueOf(inputArgs[0]), UserContext.getCurrentUser());
     }
 
     @Override

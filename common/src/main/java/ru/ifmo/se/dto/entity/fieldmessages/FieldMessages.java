@@ -5,14 +5,8 @@ public class FieldMessages {
     private FieldMessages() {
     }
 
-    public static final String ID_MUST_BE_MORE_ZERO =
-            "Id транспорта должен быть больше нуля";
-
     public static final String NAME_MUST_BE_NON_BLANK =
             "Название транспорта не должно быть пустым";
-
-    public static final String CREATE_DATE_MUST_BE_NOT_NULL =
-            "Дата и время сборки транспорта не должны отсутствовать";
 
     public static final String COORDS_MUST_BE_NOT_NULL =
             "Координаты не должны отсутствовать";
@@ -34,4 +28,5 @@ public class FieldMessages {
 
     public static final String FUEL_TYPE_MUST_BE_NOT_NULL =
             "Тип топлива должен быть указан";
+
 }

@@ -7,18 +7,12 @@ import ru.ifmo.se.io.input.CollectionInitializer;
 import ru.ifmo.se.io.input.CommandInvoker;
 import ru.ifmo.se.io.input.TerminalInputManager;
 import ru.ifmo.se.io.input.env.EnvVariableProvider;
-import ru.ifmo.se.io.input.fileparser.FileParser;
-import ru.ifmo.se.io.input.fileparser.VehicleCsvParser;
-import ru.ifmo.se.io.input.fileprovider.DataProvider;
-import ru.ifmo.se.io.input.fileprovider.FileProvider;
 import ru.ifmo.se.io.input.readers.Reader;
 import ru.ifmo.se.io.input.readers.factory.ReaderFactory;
-import ru.ifmo.se.io.output.filewriter.FileWriter;
-import ru.ifmo.se.io.output.filewriter.VehicleCsvWriter;
 import ru.ifmo.se.io.output.formatter.StringFormatter;
 import ru.ifmo.se.io.output.print.Printer;
 import ru.ifmo.se.network.NetworkService;
-import ru.ifmo.se.repository.CollectionRepository;
+import ru.ifmo.se.repository.DataRepository;
 import ru.ifmo.se.service.CollectionService;
 import ru.ifmo.se.validator.ValidatorProvider;
 
@@ -53,12 +47,12 @@ public final class AppCompositionRoot {
     private final FileParser<Vehicle> csvParser =
             new VehicleCsvParser(formatter);
 
-    private final CollectionRepository collectionRepository =
-            new CollectionRepository(collectionWithInfo);
+    private final DataRepository dataRepository =
+            new DataRepository(collectionWithInfo);
 
     @Getter
     private final CollectionService collectionService =
-            new CollectionService(collectionRepository);
+            new CollectionService(dataRepository);
 
     @Getter
     private final CollectionInitializer collectionInitializer =

@@ -9,6 +9,7 @@ import ru.ifmo.se.io.input.exceptions.InputArgsValidationException;
 import ru.ifmo.se.io.input.readers.Reader;
 import ru.ifmo.se.io.output.formatter.StringFormatter;
 import ru.ifmo.se.io.output.print.Printer;
+import ru.ifmo.se.usercontext.UserContext;
 import ru.ifmo.se.validator.ValidatorProvider;
 import ru.ifmo.se.validator.exceptions.ExecuteScriptException;
 
@@ -35,7 +36,10 @@ public class AddCommand extends VehicleAwareCommand {
             printer.forcePrintln(e.getMessage());
             throw e;
         }
-        return new RequestVehicle(commandSignature.split(" ")[0], vehicleDto);
+        return new RequestVehicle(
+                commandSignature.split(" ")[0],
+                vehicleDto, UserContext.getCurrentUser()
+        );
     }
 
     @Override

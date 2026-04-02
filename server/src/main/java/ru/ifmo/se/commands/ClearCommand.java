@@ -15,7 +15,7 @@ public class ClearCommand extends Command {
 
     @Override
     public Response execute(Request ignoredRequest) {
-        if (collectionService.clear()) {
+        if (collectionService.clearVehicles()) {
             return new Response(true, "");
         } else {
             return new Response(false, "");

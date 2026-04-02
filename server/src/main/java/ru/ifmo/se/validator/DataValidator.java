@@ -1,12 +1,10 @@
 package ru.ifmo.se.validator;
 
+import ru.ifmo.se.dto.entity.UserDto;
 import ru.ifmo.se.dto.entity.VehicleDto;
 import ru.ifmo.se.dto.entity.VehicleTypeDto;
 import ru.ifmo.se.entity.VehicleType;
-import ru.ifmo.se.validator.exceptions.CountLessThanTypeValidationException;
-import ru.ifmo.se.validator.exceptions.InputFieldValidationException;
-import ru.ifmo.se.validator.exceptions.RemoveByIdValidationException;
-import ru.ifmo.se.validator.exceptions.VehicleDtoValidationException;
+import ru.ifmo.se.validator.exceptions.*;
 
 public class DataValidator {
 
@@ -16,6 +14,17 @@ public class DataValidator {
             validateTypedDistanceTravelled(vehicleDto.getDistanceTravelled());
         } catch (InputFieldValidationException e) {
             throw new VehicleDtoValidationException(e.getMessage());
+        }
+    }
+
+    public void validateUserDto(UserDto userDto) {
+        if (userDto.getUsername() == null || userDto.getUsername().isBlank()) {
+            throw new UserDtoValidationException(
+                    ValidatorMessages.USERNAME_BE_NON_BLANK);
+        }
+        if (userDto.getPassword() == null || userDto.getPassword().strip().length() < 8) {
+            throw new UserDtoValidationException(
+                    ValidatorMessages.PASSWORD_LEN_IS_SHORT);
         }
     }
 

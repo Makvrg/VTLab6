@@ -1,8 +1,5 @@
 package ru.ifmo.se.entity;
 
-import com.opencsv.bean.CsvBindByName;
-import com.opencsv.bean.CsvCustomBindByName;
-import com.opencsv.bean.CsvDate;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
@@ -12,7 +9,6 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import ru.ifmo.se.io.input.fileparser.CoordinatesConverter;
 import ru.ifmo.se.validator.ValidatorMessages;
 
 import java.util.Date;
@@ -24,32 +20,22 @@ import java.util.Objects;
 @NoArgsConstructor
 public class Vehicle implements Comparable<Vehicle> {
 
-    @CsvBindByName(column = "id", required = true)
     @Min(
             value = 1L,
             message = ValidatorMessages.ID_MUST_BE_MORE_ZERO
     )
     private long id;
 
-    @CsvBindByName(column = "name", required = true)
     @NotBlank(message = ValidatorMessages.NAME_MUST_BE_NON_BLANK)
     private String name;
 
-    @CsvCustomBindByName(
-            column = "coordinates",
-            required = true,
-            converter = CoordinatesConverter.class
-    )
     @NotNull(message = ValidatorMessages.COORDS_MUST_BE_NOT_NULL)
     @Valid
     private Coordinates coordinates;
 
-    @CsvBindByName(column = "creationDate", required = true)
-    @CsvDate("dd-MM-yyyy HH:mm:ss")
     @NotNull(message = ValidatorMessages.CREATE_DATE_MUST_BE_NOT_NULL)
     private Date creationDate;
 
-    @CsvBindByName(column = "enginePower", required = true)
     @DecimalMin(
             value = "0.0",
             inclusive = false,
@@ -57,7 +43,6 @@ public class Vehicle implements Comparable<Vehicle> {
     )
     private double enginePower;
 
-    @CsvBindByName(column = "distanceTravelled", required = true)
     @NotNull(message = ValidatorMessages.DISTANCE_TRAVELLED_MUST_BE_NOT_NULL)
     @DecimalMin(
             value = "0.0",
@@ -66,13 +51,14 @@ public class Vehicle implements Comparable<Vehicle> {
     )
     private Float distanceTravelled;
 
-    @CsvBindByName(column = "type", required = true)
     @NotNull(message = ValidatorMessages.VEHICLE_TYPE_MUST_BE_NOT_NULL)
     private VehicleType type;
 
-    @CsvBindByName(column = "fuelType", required = true)
     @NotNull(message = ValidatorMessages.FUEL_TYPE_MUST_BE_NOT_NULL)
     private FuelType fuelType;
+
+    @NotNull(message = ValidatorMessages.USER_ID_MUST_BE_NOT_NULL)
+    private Long userId;
 
     @Getter
     public enum FieldNames {
@@ -84,7 +70,8 @@ public class Vehicle implements Comparable<Vehicle> {
         ENGINE_POWER("enginePower"),
         DISTANCE_TRAVELLED("distanceTravelled"),
         TYPE("type"),
-        FUEL_TYPE("fuelType");
+        FUEL_TYPE("fuelType"),
+        USER_ID("userId");
 
         private final String title;
 

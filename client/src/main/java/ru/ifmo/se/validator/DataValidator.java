@@ -175,4 +175,18 @@ public class DataValidator {
             );
         }
     }
+
+    public void validateUsername(String username) {
+        if (username == null || username.isBlank()) {
+            throw new InputArgsValidationException(
+                    "Имя пользователя не должно быть пустым");
+        }
+    }
+
+    public void validatePassword(String password) {
+        if (password == null || password.strip().length() < 8) {
+            throw new InputArgsValidationException(
+                    "Пароль должен состоять хотя бы из 8 непробельных символов");
+        }
+    }
 }

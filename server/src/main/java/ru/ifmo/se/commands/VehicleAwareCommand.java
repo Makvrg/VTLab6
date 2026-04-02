@@ -27,10 +27,6 @@ public abstract class VehicleAwareCommand extends Command {
 
     protected void validateVehicleDto(VehicleDto vehicleDto) {
         for (Vehicle.FieldNames field : Vehicle.FieldNames.values()) {
-            if (field == Vehicle.FieldNames.ID ||
-                    field == Vehicle.FieldNames.CREATION_DATE) {
-               continue;
-            }
             String fieldPath;
             if (field == Vehicle.FieldNames.X || field == Vehicle.FieldNames.Y) {
                 fieldPath = "coordinates." + field.getTitle();

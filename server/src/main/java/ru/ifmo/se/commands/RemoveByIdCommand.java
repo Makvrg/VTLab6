@@ -27,7 +27,7 @@ public class RemoveByIdCommand extends Command {
 
             try {
                 validatorProvider.getDataValidator().validateRemoveById(id);
-                if (collectionService.removeById(id)) {
+                if (collectionService.removeVehicleById(id)) {
                     return new Response(true,
                             "Объект Vehicle успешно удалён из коллекции по заданному id");
                 }

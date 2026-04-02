@@ -2,7 +2,6 @@ package ru.ifmo.se.dto.entity;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -20,10 +19,6 @@ import java.util.Date;
 @NoArgsConstructor
 public class VehicleDto implements Serializable {
 
-    @Min(
-            value = 1L,
-            message = FieldMessages.ID_MUST_BE_MORE_ZERO
-    )
     private long id;
 
     @NotBlank(message = FieldMessages.NAME_MUST_BE_NON_BLANK)
@@ -33,7 +28,6 @@ public class VehicleDto implements Serializable {
     @Valid
     private CoordinatesDto coordinates;
 
-    @NotNull(message = FieldMessages.CREATE_DATE_MUST_BE_NOT_NULL)
     private Date creationDate;
 
     @DecimalMin(
@@ -56,4 +50,6 @@ public class VehicleDto implements Serializable {
 
     @NotNull(message = FieldMessages.FUEL_TYPE_MUST_BE_NOT_NULL)
     private FuelTypeDto fuelType;
+
+    private Long userId;
 }

@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import ru.ifmo.se.dto.entity.UserDto;
 
 @Getter
 @Setter
@@ -12,8 +13,9 @@ import lombok.Setter;
 public class RequestId extends Request {
 
     public RequestId(String commandName,
-                     Long id) {
-        super(commandName);
+                     Long id,
+                     UserDto userDto) {
+        super(commandName, userDto);
         this.id = id;
     }
 

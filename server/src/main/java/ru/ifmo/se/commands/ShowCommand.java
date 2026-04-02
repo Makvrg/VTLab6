@@ -24,7 +24,7 @@ public class ShowCommand extends Command {
 
     @Override
     public Response execute(Request ignoredRequest) {
-        Collection<Vehicle> vehicles = collectionService.show();
+        Collection<Vehicle> vehicles = collectionService.showVehicles();
         if (!vehicles.isEmpty()) {
             return new ResponseListVehicle(true, "",
                     vehicles.stream().map(VehicleMapper.MAPPER::toDto).toList());

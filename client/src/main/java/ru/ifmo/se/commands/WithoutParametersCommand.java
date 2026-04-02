@@ -3,6 +3,7 @@ package ru.ifmo.se.commands;
 import ru.ifmo.se.dto.request.Request;
 import ru.ifmo.se.io.input.exceptions.InputArgsValidationException;
 import ru.ifmo.se.io.input.readers.Reader;
+import ru.ifmo.se.usercontext.UserContext;
 
 public abstract class WithoutParametersCommand extends Command {
 
@@ -13,7 +14,9 @@ public abstract class WithoutParametersCommand extends Command {
     @Override
     public Request makeRequest(String[] inputArgs, Reader ignoredReader) {
         validateArgs(inputArgs);
-        return new Request(commandSignature.split(" ")[0]);
+        return new Request(
+                commandSignature.split(" ")[0],
+                UserContext.getCurrentUser());
     }
 
 

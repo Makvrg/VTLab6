@@ -5,6 +5,7 @@ import ru.ifmo.se.dto.request.RequestId;
 import ru.ifmo.se.dto.response.Response;
 import ru.ifmo.se.io.input.readers.Reader;
 import ru.ifmo.se.io.output.print.Printer;
+import ru.ifmo.se.usercontext.UserContext;
 import ru.ifmo.se.validator.ValidatorProvider;
 
 public class RemoveByIdCommand extends Command {
@@ -30,7 +31,8 @@ public class RemoveByIdCommand extends Command {
         validateArgs(inputArgs);
         return new RequestId(
                 commandSignature.split(" ")[0],
-                Long.valueOf(inputArgs[0])
+                Long.valueOf(inputArgs[0]),
+                UserContext.getCurrentUser()
         );
     }
 
