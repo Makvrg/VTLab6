@@ -2,6 +2,7 @@ package ru.ifmo.se.db;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import lombok.Getter;
 import ru.ifmo.se.event.ShutdownListener;
 
 import javax.sql.DataSource;
@@ -11,13 +12,14 @@ import java.sql.SQLException;
 public final class DbConnectionManager implements ShutdownListener {
 
     private final ThreadLocal<Connection> connectionHolder = new ThreadLocal<>();
+    @Getter
     private final DataSource dataSource;
 
-    {
+    public DbConnectionManager() {
         HikariConfig config = new HikariConfig();
-        config.setJdbcUrl("jdbc:postgresql://localhost:5432/yourdb");
-        config.setUsername("youruser");
-        config.setPassword("yourpassword");
+        config.setJdbcUrl("jdbc:postgresql://localhost:5432/studs");
+        config.setUsername("s501393");
+        config.setPassword("fGh4nObU1w9Qsxb0");
         config.setMaximumPoolSize(20);
         config.setMinimumIdle(5);
         config.setConnectionTimeout(10000);
@@ -25,8 +27,6 @@ public final class DbConnectionManager implements ShutdownListener {
         config.setLeakDetectionThreshold(30000);
         dataSource = new HikariDataSource(config);
     }
-
-    private DbConnectionManager() {} // запрет создания экземпляров
 
     public Connection getConnection() throws SQLException {
         Connection conn = connectionHolder.get();

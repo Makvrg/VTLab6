@@ -42,7 +42,7 @@ public class AuthCommand extends Command {
         if (result) {
             return new Response(true, "");
         } else {
-            return new Response(false, "неверное имя пользователя или пароль");
+            return new Response(false, "неверно имя пользователя или пароль");
         }
     }
 }

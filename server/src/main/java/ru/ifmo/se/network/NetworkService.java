@@ -15,10 +15,10 @@ import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 import java.util.logging.Level;
 
 @RequiredArgsConstructor
@@ -29,8 +29,16 @@ public class NetworkService implements Runnable, ShutdownListener {
 
     private final CommandInvoker commandInvoker;
 
-    private final Map<Long, ReassemblyBuffer> incoming = new HashMap<>();
+    // Синхронизированная коллекция для буферов сборки сообщений
+    private final Map<Long, ReassemblyBuffer> incoming = Collections.synchronizedMap(new HashMap<>());
 
+    // Пул для чтения и сборки фрагментов (CachedThreadPool)
+    private final ExecutorService readPool = Executors.newCachedThreadPool();
+
+    // Пул для обработки запросов (ForkJoinPool)
+    private final ForkJoinPool processingPool = ForkJoinPool.commonPool();
+
+    @Override
     public void run() {
         try (DatagramChannel channel = DatagramChannel.open();
              Selector selector = Selector.open()) {
@@ -68,56 +76,103 @@ public class NetworkService implements Runnable, ShutdownListener {
                     try {
                         frame = UdpCodec.decode(buffer);
                     } catch (Exception e) {
+                        // Пропускаем ошибочные фреймы
                         continue;
                     }
 
-                    ReassemblyBuffer reassembly = incoming.computeIfAbsent(
-                            frame.messageId(),
-                            id -> new ReassemblyBuffer(frame.chunkCount())
-                    );
-
-                    reassembly.addChunk(frame.chunkIndex(), frame.payload());
-
-                    if (!reassembly.isComplete()) continue;
-
-                    incoming.remove(frame.messageId());
-
-                    Request request;
-                    try {
-                        byte[] raw = reassembly.assemble();
-                        request = (Request) Serializator.deserialize(ByteBuffer.wrap(raw));
-                    } catch (Exception e) {
-                        AppLogger.LOGGER.log(Level.SEVERE, "Ошибка десериализации запроса", e);
-                        continue;
-                    }
-
-                    Response response = commandInvoker.invokeCommand(request);
-
-                    byte[] responseBytes = Serializator.serialize(response);
-
-                    List<byte[]> frames = UdpChunker.split(
-                            responseBytes,
-                            PacketType.RESPONSE,
-                            frame.messageId()
-                    );
-
-                    for (byte[] f : frames) {
-                        readyChannel.send(ByteBuffer.wrap(f), clientAddress);
-                    }
-
-                    AppLogger.LOGGER.info("Ответ отправлен клиенту " + clientAddress);
+                    // Передаём обработку фрейма в CachedThreadPool
+                    final DatagramChannel channelForTask = readyChannel;
+                    final InetSocketAddress addressForTask = clientAddress;
+                    readPool.submit(() -> processFrame(frame, addressForTask, channelForTask));
                 }
             }
         } catch (BindException e) {
-            AppLogger.LOGGER.log(Level.SEVERE,"Порт уже занят");
+            AppLogger.LOGGER.log(Level.SEVERE, "Порт уже занят");
         } catch (Exception e) {
-            AppLogger.LOGGER.log(Level.SEVERE,"Ошибка сети", e);
+            AppLogger.LOGGER.log(Level.SEVERE, "Ошибка сети", e);
+        } finally {
+            shutdownPools();
         }
+    }
+
+    /**
+     * Обработка одного UDP-фрейма: добавление в буфер сборки,
+     * при завершении сообщения – передача в ForkJoinPool.
+     */
+    private void processFrame(UdpFrame frame, InetSocketAddress clientAddress, DatagramChannel channel) {
+        try {
+            ReassemblyBuffer reassembly = incoming.computeIfAbsent(
+                    frame.messageId(),
+                    id -> new ReassemblyBuffer(frame.chunkCount())
+            );
+
+            reassembly.addChunk(frame.chunkIndex(), frame.payload());
+
+            if (!reassembly.isComplete()) return;
+
+            // Сообщение полностью собрано – удаляем буфер
+            incoming.remove(frame.messageId());
+
+            byte[] rawData = reassembly.assemble();
+
+            // Передаём десериализацию и обработку в ForkJoinPool
+            processingPool.submit(() -> handleRequest(rawData, clientAddress, channel, frame.messageId()));
+        } catch (Exception e) {
+            AppLogger.LOGGER.log(Level.WARNING, "Ошибка при сборке фреймов", e);
+        }
+    }
+
+    /**
+     * Десериализация запроса, вызов команды и запуск потока для отправки ответа.
+     */
+    private void handleRequest(byte[] rawData, InetSocketAddress clientAddress,
+                               DatagramChannel channel, long messageId) {
+        try {
+            Request request = (Request) Serializator.deserialize(ByteBuffer.wrap(rawData));
+            Response response = commandInvoker.invokeCommand(request);
+
+            // Отправка ответа в отдельном новом потоке
+            new Thread(() -> sendResponse(response, clientAddress, channel, messageId)).start();
+        } catch (Exception e) {
+            AppLogger.LOGGER.log(Level.SEVERE, "Ошибка обработки запроса от " + clientAddress, e);
+        }
+    }
+
+    /**
+     * Сериализация ответа, разбивка на фреймы и отправка через DatagramChannel.
+     * Доступ к каналу синхронизирован, чтобы избежать конфликтов при параллельной отправке.
+     */
+    private void sendResponse(Response response, InetSocketAddress clientAddress,
+                              DatagramChannel channel, long messageId) {
+        try {
+            byte[] responseBytes = Serializator.serialize(response);
+            List<byte[]> frames = UdpChunker.split(responseBytes, PacketType.RESPONSE, messageId);
+
+            // Синхронизация на канале – гарантия потокобезопасности при отправке
+            synchronized (channel) {
+                for (byte[] frameData : frames) {
+                    channel.send(ByteBuffer.wrap(frameData), clientAddress);
+                }
+            }
+            AppLogger.LOGGER.info("Ответ отправлен клиенту " + clientAddress);
+        } catch (Exception e) {
+            AppLogger.LOGGER.log(Level.SEVERE, "Ошибка отправки ответа клиенту " + clientAddress, e);
+        }
+    }
+
+    /**
+     * Корректное завершение пулов потоков при остановке сервера.
+     */
+    private void shutdownPools() {
+        readPool.shutdown();
+        processingPool.shutdown();
+        // Принудительно завершаем потоки, если нужно – можно добавить awaitTermination
     }
 
     @Override
     public void onShutdown() {
         shutdown = true;
+        shutdownPools();
         System.exit(0);
     }
 }

@@ -1,4 +1,4 @@
-package ru.ifmo.se.io.input;
+package ru.ifmo.se.io.input.init;
 
 import jakarta.validation.ConstraintViolation;
 import lombok.RequiredArgsConstructor;
@@ -29,10 +29,11 @@ public class CollectionInitializer {
 
         Collection<Vehicle> vehicles;
         try {
+            //collectionService.useMigrate();
             vehicles = collectionService.findAllVehiclesFromDb();
 
-            if (checkVehiclesFromFile(vehicles)) {
-                if (addAllVehiclesFromFile(vehicles)) {
+            if (checkVehiclesFromDb(vehicles)) {
+                if (addAllVehiclesFromDb(vehicles)) {
                     AppLogger.LOGGER.info(
                             "Инициализация коллекции объектами Vehicle " +
                                     "из базы данных завершена успешно");
@@ -40,7 +41,7 @@ public class CollectionInitializer {
                     collectionService.clearVehicles();
                 }
             }
-        } catch (SQLRuntimeException e) {
+        } catch (IllegalStateException | SQLRuntimeException e) {
             AppLogger.LOGGER.log(
                     Level.SEVERE,
                     "Произошла ошибка инициализации коллекции:", e);
@@ -49,7 +50,7 @@ public class CollectionInitializer {
         }
     }
 
-    private boolean checkVehiclesFromFile(Collection<Vehicle> vehicles) {
+    private boolean checkVehiclesFromDb(Collection<Vehicle> vehicles) {
         for (Vehicle vehicle : vehicles) {
 
             Set<ConstraintViolation<Vehicle>> violations =
@@ -91,7 +92,7 @@ public class CollectionInitializer {
         return true;
     }
 
-    private boolean addAllVehiclesFromFile(Collection<Vehicle> vehicles) {
+    private boolean addAllVehiclesFromDb(Collection<Vehicle> vehicles) {
         for (Vehicle vehicle : vehicles) {
             try {
                 if (!collectionService.addInitVehicle(vehicle)) {

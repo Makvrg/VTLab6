@@ -2,7 +2,7 @@ package ru.ifmo.se.commands;
 
 import jakarta.validation.ConstraintViolation;
 import ru.ifmo.se.dto.entity.VehicleDto;
-import ru.ifmo.se.entity.Vehicle;
+import ru.ifmo.se.dto.entity.fieldnames.VehicleDtoFieldNames;
 import ru.ifmo.se.io.output.formatter.StringFormatter;
 import ru.ifmo.se.validator.ValidatorProvider;
 import ru.ifmo.se.validator.exceptions.VehicleDtoValidationException;
@@ -11,7 +11,7 @@ import java.util.Set;
 
 public abstract class VehicleAwareCommand extends Command {
 
-    private final ValidatorProvider validatorProvider;
+    protected final ValidatorProvider validatorProvider;
     private final StringFormatter formatter;
 
     protected VehicleAwareCommand(
@@ -26,9 +26,9 @@ public abstract class VehicleAwareCommand extends Command {
     }
 
     protected void validateVehicleDto(VehicleDto vehicleDto) {
-        for (Vehicle.FieldNames field : Vehicle.FieldNames.values()) {
+        for (VehicleDtoFieldNames field : VehicleDtoFieldNames.values()) {
             String fieldPath;
-            if (field == Vehicle.FieldNames.X || field == Vehicle.FieldNames.Y) {
+            if (field == VehicleDtoFieldNames.X || field == VehicleDtoFieldNames.Y) {
                 fieldPath = "coordinates." + field.getTitle();
             } else {
                 fieldPath = field.getTitle();

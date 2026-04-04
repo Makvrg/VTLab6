@@ -5,7 +5,7 @@ import ru.ifmo.se.dto.entity.CoordinatesDto;
 import ru.ifmo.se.dto.entity.FuelTypeDto;
 import ru.ifmo.se.dto.entity.VehicleDto;
 import ru.ifmo.se.dto.entity.VehicleTypeDto;
-import ru.ifmo.se.dto.entity.fieldnames.VehicleFieldNames;
+import ru.ifmo.se.dto.entity.fieldnames.VehicleDtoFieldNames;
 import ru.ifmo.se.io.input.readers.InputTextHandler;
 import ru.ifmo.se.io.input.readers.Reader;
 import ru.ifmo.se.io.input.readers.file.FileReader;
@@ -84,8 +84,8 @@ public abstract class VehicleAwareCommand extends Command {
         vehicleFieldSetters.get(field).accept(input);
 
         String fieldPath;
-        if (field.equals(VehicleFieldNames.X.getTitle()) ||
-                field.equals(VehicleFieldNames.Y.getTitle())) {
+        if (field.equals(VehicleDtoFieldNames.X.getTitle()) ||
+                field.equals(VehicleDtoFieldNames.Y.getTitle())) {
             fieldPath = "coordinates." + field;
         } else {
             fieldPath = field;
@@ -127,35 +127,35 @@ public abstract class VehicleAwareCommand extends Command {
     private Map<String, Supplier<String>> buildMapOfReadActions() {
         Map<String, Supplier<String>> actions = new LinkedHashMap<>();
 
-        actions.put(VehicleFieldNames.NAME.getTitle(),
+        actions.put(VehicleDtoFieldNames.NAME.getTitle(),
                 () ->
                         readInput(
                                 null,
                                 "Введите название транспорта"
                         )
         );
-        actions.put(VehicleFieldNames.X.getTitle(),
+        actions.put(VehicleDtoFieldNames.X.getTitle(),
                 () ->
                         readInput(
                                 "x-координата транспорта - целое число больше -482",
                                 "Введите координату x"
                         )
         );
-        actions.put(VehicleFieldNames.Y.getTitle(),
+        actions.put(VehicleDtoFieldNames.Y.getTitle(),
                 () ->
                         readInput(
                                 "y-координата транспорта - целое число",
                                 "Введите координату y"
                         )
         );
-        actions.put(VehicleFieldNames.ENGINE_POWER.getTitle(),
+        actions.put(VehicleDtoFieldNames.ENGINE_POWER.getTitle(),
                 () ->
                         readInput(
                                 "Мощность двигателя - вещественное число больше 0",
                                 "Введите мощность двигателя"
                         )
         );
-        actions.put(VehicleFieldNames.DISTANCE_TRAVELLED.getTitle(),
+        actions.put(VehicleDtoFieldNames.DISTANCE_TRAVELLED.getTitle(),
                 () ->
                         readInput(
                                 "Пробег - вещественное число больше 0",
@@ -169,7 +169,7 @@ public abstract class VehicleAwareCommand extends Command {
                     .append(Translator.translateToRusOrSelf(vehicleType.name()))
                     .append("\n");
         }
-        actions.put(VehicleFieldNames.TYPE.getTitle(),
+        actions.put(VehicleDtoFieldNames.TYPE.getTitle(),
                 () ->
                         readInput(
                                 typeExplanation.toString(),
@@ -183,7 +183,7 @@ public abstract class VehicleAwareCommand extends Command {
                     .append(Translator.translateToRusOrSelf(fuelType.name()))
                     .append("\n");
         }
-        actions.put(VehicleFieldNames.FUEL_TYPE.getTitle(),
+        actions.put(VehicleDtoFieldNames.FUEL_TYPE.getTitle(),
                 () ->
                         readInput(
                                 fuelTypeExplanation.toString(),
@@ -197,23 +197,23 @@ public abstract class VehicleAwareCommand extends Command {
         Map<String, Consumer<String>> validateMethods = new HashMap<>();
 
         validateMethods.put(
-                VehicleFieldNames.X.getTitle(),
+                VehicleDtoFieldNames.X.getTitle(),
                 validatorProvider.getDataValidator()::validateXCoordType);
         validateMethods.put(
-                VehicleFieldNames.Y.getTitle(),
+                VehicleDtoFieldNames.Y.getTitle(),
                 validatorProvider.getDataValidator()::validateYCoordType);
         validateMethods.put(
-                VehicleFieldNames.ENGINE_POWER.getTitle(),
+                VehicleDtoFieldNames.ENGINE_POWER.getTitle(),
                 validatorProvider.getDataValidator()::validateEnginePowerType);
         validateMethods.put(
-                VehicleFieldNames.DISTANCE_TRAVELLED.getTitle(),
+                VehicleDtoFieldNames.DISTANCE_TRAVELLED.getTitle(),
                 validatorProvider.getDataValidator()::validateDistanceTravelledType);
         validateMethods.put(
-                VehicleFieldNames.TYPE.getTitle(),
+                VehicleDtoFieldNames.TYPE.getTitle(),
                 validatorProvider.getDataValidator()::validateRusVehicleType
         );
         validateMethods.put(
-                VehicleFieldNames.FUEL_TYPE.getTitle(),
+                VehicleDtoFieldNames.FUEL_TYPE.getTitle(),
                 validatorProvider.getDataValidator()::validateRusFuelType
         );
         return validateMethods;
@@ -222,25 +222,25 @@ public abstract class VehicleAwareCommand extends Command {
     private Map<String, Consumer<String>> buildMapOfDtoFieldSetters() {
         Map<String, Consumer<String>> setters = new HashMap<>();
 
-        setters.put(VehicleFieldNames.NAME.getTitle(), name -> vehicleDto.setName(name));
-        setters.put(VehicleFieldNames.X.getTitle(),
+        setters.put(VehicleDtoFieldNames.NAME.getTitle(), name -> vehicleDto.setName(name));
+        setters.put(VehicleDtoFieldNames.X.getTitle(),
                 x -> vehicleDto.getCoordinates().setX(
                         (x != null) ? Integer.valueOf(x) : null
                 )
         );
-        setters.put(VehicleFieldNames.Y.getTitle(),
+        setters.put(VehicleDtoFieldNames.Y.getTitle(),
                 y -> vehicleDto.getCoordinates().setY(Long.parseLong(y)));
-        setters.put(VehicleFieldNames.ENGINE_POWER.getTitle(),
+        setters.put(VehicleDtoFieldNames.ENGINE_POWER.getTitle(),
                 pow -> vehicleDto.setEnginePower(Double.parseDouble(pow)));
-        setters.put(VehicleFieldNames.DISTANCE_TRAVELLED.getTitle(),
+        setters.put(VehicleDtoFieldNames.DISTANCE_TRAVELLED.getTitle(),
                 dist -> vehicleDto.setDistanceTravelled(Float.valueOf(dist)));
-        setters.put(VehicleFieldNames.TYPE.getTitle(),
+        setters.put(VehicleDtoFieldNames.TYPE.getTitle(),
                 type ->
                         vehicleDto.setType(
                                 VehicleTypeDto.valueOf(Translator.translateToEngOrSelf(type))
                         )
         );
-        setters.put(VehicleFieldNames.FUEL_TYPE.getTitle(),
+        setters.put(VehicleDtoFieldNames.FUEL_TYPE.getTitle(),
                 fuel ->
                         vehicleDto.setFuelType(
                                 FuelTypeDto.valueOf(Translator.translateToEngOrSelf(fuel))

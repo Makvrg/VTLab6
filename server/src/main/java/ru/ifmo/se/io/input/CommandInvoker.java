@@ -59,17 +59,27 @@ public class CommandInvoker {
         currentCommand = new UnknownCommand();
         commands.put(getCommandName.apply(currentCommand), currentCommand);
         unknownCommandName = getCommandName.apply(currentCommand);
+
+        currentCommand = new RegistrationCommand(
+                collectionService, validatorProvider
+        );
+        commands.put(getCommandName.apply(currentCommand), currentCommand);
+
+        currentCommand = new AuthCommand(
+                collectionService, validatorProvider
+        );
+        commands.put(getCommandName.apply(currentCommand), currentCommand);
         
         currentCommand = new HelpCommand(commands.values());
         commands.put(getCommandName.apply(currentCommand), currentCommand);
 
-        currentCommand = new InfoCommand(collectionService);
+        currentCommand = new InfoCommand(collectionService, validatorProvider);
         commands.put(getCommandName.apply(currentCommand), currentCommand);
 
         currentCommand = new ExitCommand(printer, collectionService);
         commands.put(getCommandName.apply(currentCommand), currentCommand);
 
-        currentCommand = new ShowCommand(collectionService);
+        currentCommand = new ShowCommand(collectionService, validatorProvider);
         commands.put(getCommandName.apply(currentCommand), currentCommand);
 
         currentCommand = new AddCommand(
@@ -87,7 +97,7 @@ public class CommandInvoker {
         );
         commands.put(getCommandName.apply(currentCommand), currentCommand);
 
-        currentCommand = new ClearCommand(collectionService);
+        currentCommand = new ClearCommand(collectionService, validatorProvider);
         commands.put(getCommandName.apply(currentCommand), currentCommand);
 
         commands.put(getCommandName.apply(currentCommand), currentCommand);
@@ -108,12 +118,12 @@ public class CommandInvoker {
         commands.put(getCommandName.apply(currentCommand), currentCommand);
 
         currentCommand = new MaxByEnginePowerCommand(
-                collectionService
+                collectionService, validatorProvider
         );
         commands.put(getCommandName.apply(currentCommand), currentCommand);
 
         currentCommand = new GroupCountingByDistanceTravelledCommand(
-                collectionService
+                collectionService, validatorProvider
         );
         commands.put(getCommandName.apply(currentCommand), currentCommand);
 

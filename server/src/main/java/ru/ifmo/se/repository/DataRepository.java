@@ -2,11 +2,12 @@ package ru.ifmo.se.repository;
 
 import lombok.RequiredArgsConstructor;
 import ru.ifmo.se.collection.CollectionWithInfo;
-import ru.ifmo.se.entity.Vehicle;
 import ru.ifmo.se.entity.User;
+import ru.ifmo.se.entity.Vehicle;
 import ru.ifmo.se.service.exceptions.MaxEnginePowerNotExistException;
 import ru.ifmo.se.service.exceptions.MaxIdNotExistException;
 
+import java.sql.SQLException;
 import java.util.*;
 
 @RequiredArgsConstructor
@@ -41,25 +42,29 @@ public class DataRepository {
         throw new MaxIdNotExistException();
     }
 
-    public long findUserMaxId() {
-        return findAllUsers().stream()
+    public long findUserMaxId() throws SQLException {
+        return dbRepository.findAllUsers().stream()
                 .mapToLong(User::getId)
                 .max()
                 .orElseThrow(MaxIdNotExistException::new);
     }
 
-    public Optional<Long> findUserIdByUsername(String username) {
+    public Optional<Long> findUserIdByUsername(String username) throws SQLException {
         return dbRepository.findUserIdByUsername(username);
     }
 
-    public boolean add(Vehicle vehicle) {
+    public Optional<String> findUsernameById(Long id) throws SQLException {
+        return dbRepository.findUsernameById(id);
+    }
+
+    public boolean add(Vehicle vehicle) throws SQLException {
         if (dbRepository.add(vehicle)) {
             return collectionWithInfo.getCollection().add(vehicle);
         }
         return false;
     }
 
-    public boolean add(User user) {
+    public boolean add(User user) throws SQLException {
         return dbRepository.add(user);
     }
 
@@ -91,7 +96,7 @@ public class DataRepository {
         return Optional.empty();
     }
 
-    public boolean updateById(long id, Vehicle newData) {
+    public boolean updateById(long id, Vehicle newData) throws SQLException {
         if (dbRepository.updateById(newData, id)) {
             for (Vehicle vehicle : collectionWithInfo.getCollection()) {
                 if (vehicle.getId() == id) {
@@ -117,15 +122,15 @@ public class DataRepository {
         return collectionWithInfo.getCollection();
     }
 
-    public Collection<Vehicle> findAllVehiclesFromDb() {
-        return dbRepository.findAllVehicle();
+    public Collection<Vehicle> findAllVehiclesFromDb() throws SQLException {
+        return dbRepository.findAllVehicles();
     }
 
-    public Collection<User> findAllUsers() {
-        return dbRepository.findAllUser();
+    public Collection<User> findAllUsers() throws SQLException {
+        return dbRepository.findAllUsers();
     }
 
-    public boolean deleteVehicleById(long id) {
+    public boolean deleteVehicleById(long id) throws SQLException {
         if (dbRepository.deleteVehicleById(id)) {
             for (Iterator<Vehicle> itr = collectionWithInfo.getCollection().iterator(); itr.hasNext(); ) {
                 if (itr.next().getId() == id) {
@@ -138,7 +143,7 @@ public class DataRepository {
         return false;
     }
 
-    public boolean deleteAllVehicles() {
+    public boolean deleteAllVehicles() throws SQLException {
         if (dbRepository.truncateVehicles()) {
             collectionWithInfo.getCollection().clear();
             return true;

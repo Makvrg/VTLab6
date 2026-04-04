@@ -3,7 +3,7 @@ package ru.ifmo.se.dto.entity.fieldnames;
 import lombok.Getter;
 
 @Getter
-public enum VehicleFieldNames {
+public enum VehicleDtoFieldNames {
 
     ID("id"),
     NAME("name"),
@@ -14,11 +14,11 @@ public enum VehicleFieldNames {
     DISTANCE_TRAVELLED("distanceTravelled"),
     TYPE("type"),
     FUEL_TYPE("fuelType"),
-    USER_ID("userId");
+    USERNAME("username");
 
     private final String title;
 
-    VehicleFieldNames(String title) {
+    VehicleDtoFieldNames(String title) {
         this.title = title;
     }
 }

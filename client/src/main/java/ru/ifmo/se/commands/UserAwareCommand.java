@@ -30,7 +30,7 @@ public abstract class UserAwareCommand extends Command {
         boolean valid = false;
         while (!valid) {
             try {
-                username = readField(reader, "Придумайте имя пользователя");
+                username = readField(reader, "Введите имя пользователя");
                 printer.printlnIfOn("");
                 validatorProvider.getDataValidator().validateUsername(username);
                 valid = true;
@@ -41,7 +41,7 @@ public abstract class UserAwareCommand extends Command {
         valid = false;
         while (!valid) {
             try {
-                password = readField(reader, "Придумайте пароль");
+                password = readField(reader, "Введите пароль");
                 printer.printlnIfOn("");
                 validatorProvider.getDataValidator().validatePassword(password);
                 valid = true;
@@ -49,7 +49,7 @@ public abstract class UserAwareCommand extends Command {
                 printer.printlnIfOn(e.getMessage() + ", повторите ввод");
             }
         }
-        return new UserDto(username, password);
+        return new UserDto(null, username, password);
     }
 
     protected String readField(Reader reader, String message) {

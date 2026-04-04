@@ -28,6 +28,8 @@ public class CommandInvoker {
     @Getter
     private String exitCommandName;
     @Getter
+    private String helpCommandName;
+    @Getter
     private String regCommandName;
     @Getter
     private String authCommandName;
@@ -88,6 +90,7 @@ public class CommandInvoker {
         
         currentCommand = new HelpCommand(printer, formatter);
         commands.put(getCommandName.apply(currentCommand), currentCommand);
+        helpCommandName = getCommandName.apply(currentCommand);
 
         currentCommand = new RegistrationCommand(printer, validatorProvider);
         commands.put(getCommandName.apply(currentCommand), currentCommand);

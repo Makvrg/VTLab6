@@ -51,5 +51,5 @@ public class VehicleDto implements Serializable {
     @NotNull(message = FieldMessages.FUEL_TYPE_MUST_BE_NOT_NULL)
     private FuelTypeDto fuelType;
 
-    private Long userId;
+    private String username;
 }

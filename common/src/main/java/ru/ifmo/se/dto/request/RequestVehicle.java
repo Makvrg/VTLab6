@@ -1,11 +1,11 @@
 package ru.ifmo.se.dto.request;
 
-import ru.ifmo.se.dto.entity.UserDto;
-import ru.ifmo.se.dto.entity.VehicleDto;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import ru.ifmo.se.dto.entity.UserDto;
+import ru.ifmo.se.dto.entity.VehicleDto;
 
 @Getter
 @Setter

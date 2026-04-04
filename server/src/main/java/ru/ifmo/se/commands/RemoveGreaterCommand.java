@@ -1,5 +1,6 @@
 package ru.ifmo.se.commands;
 
+import ru.ifmo.se.entity.User;
 import ru.ifmo.se.entity.Vehicle;
 import ru.ifmo.se.io.output.formatter.StringFormatter;
 import ru.ifmo.se.service.CollectionService;
@@ -23,5 +24,10 @@ public class RemoveGreaterCommand extends RemoveByCompareCommand {
     @Override
     protected boolean useService(Vehicle vehicle) {
         return collectionService.removeGreater(vehicle);
+    }
+
+    @Override
+    protected boolean checkAuth(User enteredUser, String rawPassword) {
+        return collectionService.auth(enteredUser, rawPassword);
     }
 }

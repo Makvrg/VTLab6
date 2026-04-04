@@ -3,10 +3,14 @@ package ru.ifmo.se.commands;
 import ru.ifmo.se.dto.request.Request;
 import ru.ifmo.se.dto.request.RequestId;
 import ru.ifmo.se.dto.response.Response;
+import ru.ifmo.se.mapper.UserMapper;
 import ru.ifmo.se.service.CollectionService;
+import ru.ifmo.se.service.exceptions.NoSuchAlgorithmRuntimeException;
 import ru.ifmo.se.service.exceptions.RemoveByIdIllegalStateException;
+import ru.ifmo.se.service.exceptions.SQLRuntimeException;
 import ru.ifmo.se.validator.ValidatorProvider;
 import ru.ifmo.se.validator.exceptions.RemoveByIdValidationException;
+import ru.ifmo.se.validator.exceptions.UserDtoValidationException;
 
 public class RemoveByIdCommand extends Command {
 
@@ -23,10 +27,21 @@ public class RemoveByIdCommand extends Command {
     @Override
     public Response execute(Request request) {
         if (request instanceof RequestId requestId) {
+            try {
+                validatorProvider.getDataValidator().validateUserDto(request.getUserDto());
+            } catch (UserDtoValidationException e) {
+                return new Response(false, e.getMessage());
+            }
             Long id = requestId.getId();
 
             try {
                 validatorProvider.getDataValidator().validateRemoveById(id);
+                if (!collectionService.auth(
+                        UserMapper.toEntity(
+                                request.getUserDto()),
+                        request.getUserDto().getPassword())) {
+                    return new Response(false, "Команды не доступны неавторизованным пользователям");
+                }
                 if (collectionService.removeVehicleById(id)) {
                     return new Response(true,
                             "Объект Vehicle успешно удалён из коллекции по заданному id");
@@ -40,6 +55,8 @@ public class RemoveByIdCommand extends Command {
                         "Объект не удалён, так как произошла ошибка во время работы: " +
                                 e.getMessage()
                 );
+            } catch (SQLRuntimeException | NoSuchAlgorithmRuntimeException e) {
+                return new Response(false, "ошибка со стороны сервера");
             }
         }
         return new Response(false, "Отправлен некорректный запрос");

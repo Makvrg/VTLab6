@@ -7,6 +7,7 @@ import ru.ifmo.se.entity.User;
 import ru.ifmo.se.entity.Vehicle;
 import ru.ifmo.se.entity.VehicleType;
 import ru.ifmo.se.event.ShutdownListener;
+import ru.ifmo.se.io.input.init.DbMigrator;
 import ru.ifmo.se.passwordhasher.PasswordHasher;
 import ru.ifmo.se.repository.DataRepository;
 import ru.ifmo.se.service.exceptions.*;
@@ -20,6 +21,7 @@ public class CollectionService {
 
     private final DataRepository dataRepository;
     private final DbConnectionManager connectionManager;
+    private final DbMigrator migrator;
     private final List<ShutdownListener> listeners = new ArrayList<>();
 
     public boolean exit() {
@@ -88,12 +90,14 @@ public class CollectionService {
     }
 
     public CollectionInfoDto info() {
-        return new CollectionInfoDto(
-                dataRepository.getCollectionType().getSimpleName(),
-                dataRepository.getInitializationDate(),
-                dataRepository.getElementsType().getSimpleName(),
-                dataRepository.getCountOfElements()
-        );
+        synchronized (dataRepository.findAllVehicles()) {
+            return new CollectionInfoDto(
+                    dataRepository.getCollectionType().getSimpleName(),
+                    dataRepository.getInitializationDate(),
+                    dataRepository.getElementsType().getSimpleName(),
+                    dataRepository.getCountOfElements()
+            );
+        }
     }
 
     public boolean add(Vehicle vehicle, String username) {
@@ -142,35 +146,59 @@ public class CollectionService {
 
     private long createNewVehicleId() {
         try {
-            return dataRepository.findVehicleMaxId() + 1L;
+            synchronized (dataRepository.findAllVehicles()) {
+                return dataRepository.findVehicleMaxId() + 1L;
+            }
         } catch (MaxIdNotExistException e) {
             return 1L;
         }
     }
 
-    private long createNewUserId() {
+    private long createNewUserId() throws SQLException {
         try {
-            return dataRepository.findUserMaxId() + 1L;
+            synchronized (dataRepository.findAllVehicles()) {
+                return dataRepository.findUserMaxId() + 1L;
+            }
         } catch (MaxIdNotExistException e) {
             return 1L;
+        }
+    }
+
+    public Optional<String> findUsernameById(Long id) {
+        try {
+            connectionManager.beginTransaction(4);
+            return dataRepository.findUsernameById(id);
+        } catch (SQLException e) {
+        throw new SQLRuntimeException(e.getMessage());
+    } finally {
+        try {
+            connectionManager.commit();
+            connectionManager.close();
+        } catch (SQLException e) {
+            throw new SQLRuntimeException(e.getMessage());
+        }
         }
     }
 
     public boolean addIfMin(Vehicle vehicle, String username) {
-        Optional<Vehicle> minVehicle = dataRepository.findMinVehicle();
-        if (minVehicle.isPresent() && vehicle.compareTo(minVehicle.get()) < 0) {
-            return add(vehicle, username);
-        } else if (minVehicle.isEmpty()) {
-            return add(vehicle, username);
-        } else {
-            return false;
+        synchronized (dataRepository.findAllVehicles()) {
+            Optional<Vehicle> minVehicle = dataRepository.findMinVehicle();
+            if (minVehicle.isPresent() && vehicle.compareTo(minVehicle.get()) < 0) {
+                return add(vehicle, username);
+            } else if (minVehicle.isEmpty()) {
+                return add(vehicle, username);
+            } else {
+                return false;
+            }
         }
     }
 
     public boolean updateById(Vehicle vehicle, Long id) {
         try {
             connectionManager.beginTransaction(4);
-            return dataRepository.updateById(id, vehicle);
+            synchronized (dataRepository.findAllVehicles()) {
+                return dataRepository.updateById(id, vehicle);
+            }
         } catch (SQLException e) {
             throw new SQLRuntimeException(e.getMessage());
         } finally {
@@ -191,7 +219,9 @@ public class CollectionService {
         try {
             connectionManager.beginTransaction(4);
             try {
-                return dataRepository.deleteVehicleById(id);
+                synchronized (dataRepository.findAllVehicles()) {
+                    return dataRepository.deleteVehicleById(id);
+                }
             } catch (IllegalStateException e) {
                 throw new RemoveByIdIllegalStateException(e.getMessage());
             }
@@ -210,7 +240,9 @@ public class CollectionService {
     public boolean clearVehicles() {
         try {
             connectionManager.beginTransaction(8);
-            return dataRepository.deleteAllVehicles();
+            synchronized (dataRepository.findAllVehicles()) {
+                return dataRepository.deleteAllVehicles();
+            }
         } catch (SQLException e) {
             throw new SQLRuntimeException(e.getMessage());
         } finally {
@@ -221,6 +253,10 @@ public class CollectionService {
                 throw new SQLRuntimeException(e.getMessage());
             }
         }
+    }
+
+    public void useMigrate() {
+        migrator.migrate(connectionManager.getDataSource());
     }
 
     public Collection<Vehicle> findAllVehiclesFromDb() {
@@ -240,50 +276,60 @@ public class CollectionService {
     }
 
     public boolean removeGreater(Vehicle enteredVehicle) {
-        boolean returned = false;
-        for (Vehicle vehicle : dataRepository.findAllVehicles()) {
-            if (vehicle.compareTo(enteredVehicle) > 0) {
-                removeVehicleById(vehicle.getId());
-                returned = true;
+        synchronized (dataRepository.findAllVehicles()) {
+            boolean returned = false;
+            for (Vehicle vehicle : dataRepository.findAllVehicles()) {
+                if (vehicle.compareTo(enteredVehicle) > 0) {
+                    removeVehicleById(vehicle.getId());
+                    returned = true;
+                }
             }
+            return returned;
         }
-        return returned;
     }
 
     public boolean removeLower(Vehicle enteredVehicle) {
-        boolean returned = false;
-        for (Vehicle vehicle : dataRepository.findAllVehicles()) {
-            if (vehicle.compareTo(enteredVehicle) < 0) {
-                removeVehicleById(vehicle.getId());
-                returned = true;
+        synchronized (dataRepository.findAllVehicles()) {
+            boolean returned = false;
+            for (Vehicle vehicle : dataRepository.findAllVehicles()) {
+                if (vehicle.compareTo(enteredVehicle) < 0) {
+                    removeVehicleById(vehicle.getId());
+                    returned = true;
+                }
             }
+            return returned;
         }
-        return returned;
     }
 
     public Optional<Vehicle> maxByEnginePower() {
-        double maxEnginePower;
-        try {
-            maxEnginePower = dataRepository.findMaxEnginePower();
-        } catch (MaxEnginePowerNotExistException e) {
-            return Optional.empty();
+        synchronized (dataRepository.findAllVehicles()) {
+            double maxEnginePower;
+            try {
+                maxEnginePower = dataRepository.findMaxEnginePower();
+            } catch (MaxEnginePowerNotExistException e) {
+                return Optional.empty();
+            }
+            return dataRepository.findVehicleByEnginePower(maxEnginePower);
         }
-        return dataRepository.findVehicleByEnginePower(maxEnginePower);
     }
 
     public Map<Float, Integer> groupCountingByDistanceTravelled() {
-        Map<Float, List<Vehicle>> groups = dataRepository.groupByDistanceTravelled();
-        HashMap<Float, Integer> counts = new HashMap<>();
-        for (Map.Entry<Float, List<Vehicle>> entry : groups.entrySet()) {
-            counts.put(entry.getKey(), entry.getValue().size());
+        synchronized (dataRepository.findAllVehicles()) {
+            Map<Float, List<Vehicle>> groups = dataRepository.groupByDistanceTravelled();
+            HashMap<Float, Integer> counts = new HashMap<>();
+            for (Map.Entry<Float, List<Vehicle>> entry : groups.entrySet()) {
+                counts.put(entry.getKey(), entry.getValue().size());
+            }
+            return counts;
         }
-        return counts;
     }
 
     public long countLessThanType(VehicleType vehicleType) {
-        return dataRepository.findAllVehicles().stream()
-                .filter(vehicle -> vehicle.getType().compareTo(vehicleType) < 0)
-                .count();
+        synchronized (dataRepository.findAllVehicles()) {
+            return dataRepository.findAllVehicles().stream()
+                    .filter(vehicle -> vehicle.getType().compareTo(vehicleType) < 0)
+                    .count();
+        }
     }
 
     public int getCountElementsCollection() {

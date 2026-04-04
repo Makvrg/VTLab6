@@ -1,6 +1,5 @@
 package ru.ifmo.se.application;
 
-import ru.ifmo.se.io.input.exceptions.CollectionInitFromDbException;
 import ru.ifmo.se.io.output.CollectionActionsMessages;
 import ru.ifmo.se.logger.AppLogger;
 
@@ -20,13 +19,17 @@ public class AppStarter {
                 .addShutdownListener(
                         appCompositionRoot.getTerminalPipeline()
                 );
+        appCompositionRoot.getCollectionService()
+                .addShutdownListener(
+                        appCompositionRoot.getConnectionManager()
+                );
         try {
             appCompositionRoot.getCollectionInitializer().initialize();
-        } catch (CollectionInitFromDbException e) {
+        } catch (Throwable e) {
             AppLogger.LOGGER.log(
                     Level.SEVERE,
-                    CollectionActionsMessages.VEHICLE_INIT_OPEN_FILE_EXC
-                            + e.getMessage()
+                    CollectionActionsMessages.VEHICLE_INIT_EXC
+                            + e.getMessage(), e
             );
         }
         Thread networkThread = new Thread(() ->

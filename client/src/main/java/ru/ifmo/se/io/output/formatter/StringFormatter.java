@@ -65,7 +65,8 @@ public class StringFormatter {
           .append("  Тип транспорта: ")
                 .append(Translator.translateToRusOrSelf(vehicleDto.getType().name())).append("\n")
           .append("  Тип топлива: ")
-                .append(Translator.translateToRusOrSelf(vehicleDto.getFuelType().name()));
+                .append(Translator.translateToRusOrSelf(vehicleDto.getFuelType().name())).append("\n")
+          .append("  Имя создателя объекта: ").append(vehicleDto.getUsername());
         return sb.toString();
     }
 

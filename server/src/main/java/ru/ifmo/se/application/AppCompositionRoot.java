@@ -2,26 +2,30 @@ package ru.ifmo.se.application;
 
 import lombok.Getter;
 import ru.ifmo.se.collection.CollectionWithInfo;
+import ru.ifmo.se.db.DbConnectionManager;
 import ru.ifmo.se.entity.Vehicle;
-import ru.ifmo.se.io.input.CollectionInitializer;
 import ru.ifmo.se.io.input.CommandInvoker;
 import ru.ifmo.se.io.input.TerminalInputManager;
-import ru.ifmo.se.io.input.env.EnvVariableProvider;
+import ru.ifmo.se.io.input.init.CollectionInitializer;
+import ru.ifmo.se.io.input.init.DbMigrator;
 import ru.ifmo.se.io.input.readers.Reader;
 import ru.ifmo.se.io.input.readers.factory.ReaderFactory;
 import ru.ifmo.se.io.output.formatter.StringFormatter;
 import ru.ifmo.se.io.output.print.Printer;
 import ru.ifmo.se.network.NetworkService;
 import ru.ifmo.se.repository.DataRepository;
+import ru.ifmo.se.repository.DbRepository;
 import ru.ifmo.se.service.CollectionService;
 import ru.ifmo.se.validator.ValidatorProvider;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 
 public final class AppCompositionRoot {
 
-    private final Collection<Vehicle> collection = new HashSet<>();
+    private final Collection<Vehicle> collection =
+            Collections.synchronizedSet(new HashSet<>());
 
     private final CollectionWithInfo collectionWithInfo =
             new CollectionWithInfo(
@@ -35,33 +39,23 @@ public final class AppCompositionRoot {
     private final StringFormatter formatter =
             new StringFormatter();
 
-    private static final String ENV_VAR_NAME = "VEHICLE_FILE";
-    private static final String BACKUP_FILE_NAME =
-            "backup_collection_save_file_wl64fI983T";
-    private final EnvVariableProvider envProvider =
-            new EnvVariableProvider(ENV_VAR_NAME);
-    private final FileWriter<Vehicle> csvWriter =
-            new VehicleCsvWriter(BACKUP_FILE_NAME);
-    private final DataProvider dataProvider =
-            new FileProvider();
-    private final FileParser<Vehicle> csvParser =
-            new VehicleCsvParser(formatter);
-
+    @Getter
+    private final DbConnectionManager connectionManager =
+            new DbConnectionManager();
+    private final DbRepository dbRepository = new DbRepository(connectionManager);
     private final DataRepository dataRepository =
-            new DataRepository(collectionWithInfo);
+            new DataRepository(collectionWithInfo, dbRepository);
+    private final DbMigrator migrator = new DbMigrator();
 
     @Getter
     private final CollectionService collectionService =
-            new CollectionService(dataRepository);
+            new CollectionService(dataRepository, connectionManager, migrator);
 
     @Getter
     private final CollectionInitializer collectionInitializer =
             new CollectionInitializer(
-                    envProvider,
                     collectionService,
                     validatorProvider,
-                    csvParser,
-                    dataProvider,
                     formatter
             );
 
@@ -72,8 +66,6 @@ public final class AppCompositionRoot {
                     validatorProvider,
                     collectionService,
                     formatter,
-                    csvWriter,
-                    envProvider,
                     printer
             );
 
