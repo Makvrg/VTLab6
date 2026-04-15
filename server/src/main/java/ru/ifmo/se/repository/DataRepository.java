@@ -43,18 +43,20 @@ public class DataRepository {
         return dbRepository.findUsernameById(id);
     }
 
-    public boolean add(Vehicle vehicle) throws SQLException {
-        if (dbRepository.add(vehicle)) {
-            return collectionWithInfo.getCollection().add(vehicle);
+    public Optional<Long> add(Vehicle vehicle) throws SQLException {
+        Optional<Long> newId = dbRepository.add(vehicle);
+        if (newId.isPresent()) {
+            vehicle.setId(newId.get());
+            collectionWithInfo.getCollection().add(vehicle);
         }
-        return false;
+        return newId;
     }
 
     public boolean addInitVehicle(Vehicle vehicle) {
         return collectionWithInfo.getCollection().add(vehicle);
     }
 
-    public boolean add(User user) throws SQLException {
+    public Optional<Long> add(User user) throws SQLException {
         return dbRepository.add(user);
     }
 

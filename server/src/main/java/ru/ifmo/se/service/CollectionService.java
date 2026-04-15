@@ -7,7 +7,7 @@ import ru.ifmo.se.entity.User;
 import ru.ifmo.se.entity.Vehicle;
 import ru.ifmo.se.entity.VehicleType;
 import ru.ifmo.se.event.ShutdownListener;
-import ru.ifmo.se.io.input.init.DbMigrator;
+import ru.ifmo.se.repository.init.DbMigrator;
 import ru.ifmo.se.passwordhasher.PasswordHasher;
 import ru.ifmo.se.repository.DataRepository;
 import ru.ifmo.se.service.exceptions.*;
@@ -46,7 +46,7 @@ public class CollectionService {
                         throw new NoSuchAlgorithmRuntimeException("Не найден алгоритм хеширования" +
                                 e.getMessage());
                     }
-                    return dataRepository.add(newUser);
+                    return dataRepository.add(newUser).isPresent();
                 }
         );
     }
@@ -93,7 +93,7 @@ public class CollectionService {
                             return false;
                         }
                         vehicle.setCreationDate(new Date());
-                        return dataRepository.add(vehicle);
+                        return dataRepository.add(vehicle).isPresent();
                     } catch (SQLException e) {
                         throw new SQLRuntimeException(e.getMessage());
                     }
@@ -132,17 +132,17 @@ public class CollectionService {
     }
 
     public boolean updateById(Vehicle newData, Long vehicleId, String username) {
-            try {
-                Optional<Long> userId = dataRepository.findUserIdByUsername(username);
-                if (userId.isEmpty()) {
-                    return false;
-                }
-                synchronized (dataRepository.findAllVehicles()) {
-                    return dataRepository.updateById(vehicleId, newData, userId.get());
-                }
-            } catch (SQLException e) {
-                throw new SQLRuntimeException(e.getMessage());
+        try {
+            Optional<Long> userId = dataRepository.findUserIdByUsername(username);
+            if (userId.isEmpty()) {
+                return false;
             }
+            synchronized (dataRepository.findAllVehicles()) {
+                return dataRepository.updateById(vehicleId, newData, userId.get());
+            }
+        } catch (SQLException e) {
+            throw new SQLRuntimeException(e.getMessage());
+        }
     }
 
     public Collection<Vehicle> showVehicles() {
@@ -198,7 +198,11 @@ public class CollectionService {
     }
 
     public void useMigrate() {
-        migrator.migrate(connectionManager.getDataSource());
+        try {
+            migrator.migrate(connectionManager.getConnection());
+        } catch (SQLException e) {
+            throw new SQLRuntimeException(e.getMessage());
+        }
     }
 
     public Collection<Vehicle> findAllVehiclesFromDb() {
@@ -278,8 +282,7 @@ public class CollectionService {
         listeners.forEach(ShutdownListener::onShutdown);
     }
 
-    private  <T> T executeInTransaction(int isolationLevel, TransactionalOperation<T> operation) {
-        RuntimeException savedExc = null;
+    private <T> T executeInTransaction(int isolationLevel, TransactionalOperation<T> operation) {
         try {
             connectionManager.beginTransaction(isolationLevel);
             T result = operation.execute();
@@ -294,23 +297,12 @@ public class CollectionService {
             }
             throw new SQLRuntimeException(e.getMessage());
         } catch (RuntimeException e) {
-            savedExc = e;
             try {
                 connectionManager.rollback();
             } catch (SQLException rollbackEx) {
                 throw e;
             }
             throw e;
-        } finally {
-            try {
-                connectionManager.close();
-            } catch (SQLException closeEx) {
-                if (savedExc == null) {
-                    throw new SQLRuntimeException("Close failed " + closeEx.getMessage());
-                } else {
-                    throw savedExc;
-                }
-            }
         }
     }
 

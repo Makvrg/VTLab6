@@ -52,17 +52,21 @@ public class AddCommand extends VehicleAwareCommand {
                         UserMapper.toEntity(
                                 request.getUserDto()),
                                 request.getUserDto().getPassword())) {
+                    AppLogger.LOGGER.info("Предотвращена попытка неавторизованного доступа к add");
                     return new Response(false, "Команды не доступны неавторизованным пользователям");
                 }
                 if (collectionService.add(vehicle, request.getUserDto().getUsername())) {
+                    AppLogger.LOGGER.info("Успешное выполнение add, объект добавлен");
                     return new Response(true, "Новый объект успешно добавлен в коллекцию");
                 }
+                AppLogger.LOGGER.info("Объект не был добавлен в add");
                 return new Response(false, "Новый объект не был добавлен в коллекцию");
             } catch (SQLRuntimeException | NoSuchAlgorithmRuntimeException e) {
                 AppLogger.LOGGER.log(Level.SEVERE, "Ошибка при команде add: ", e);
                 return new Response(false, "ошибка со стороны сервера");
             }
         }
+        AppLogger.LOGGER.info("Был получен некорректный запрос");
         return new Response(false, "Отправлен некорректный запрос");
     }
 }

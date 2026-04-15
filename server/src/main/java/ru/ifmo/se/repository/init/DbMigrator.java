@@ -1,4 +1,4 @@
-package ru.ifmo.se.io.input.init;
+package ru.ifmo.se.repository.init;
 
 import liquibase.Liquibase;
 import liquibase.changelog.ChangeSetStatus;
@@ -9,16 +9,14 @@ import liquibase.exception.LiquibaseException;
 import liquibase.resource.ClassLoaderResourceAccessor;
 import ru.ifmo.se.logger.AppLogger;
 
-import javax.sql.DataSource;
 import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.List;
 import java.util.logging.Level;
 
 public class DbMigrator {
 
-    public void migrate(DataSource dataSource) {
-        try (Connection connection = dataSource.getConnection()) {
+    public void migrate(Connection connection) {
+        try {
             Database database = DatabaseFactory.getInstance()
                     .findCorrectDatabaseImplementation(new JdbcConnection(connection));
 
@@ -45,7 +43,7 @@ public class DbMigrator {
             liquibase.update("");
             AppLogger.LOGGER.info("Миграции успешно применены");
 
-        } catch (SQLException | LiquibaseException e) {
+        } catch (LiquibaseException e) {
             AppLogger.LOGGER.log(
                     Level.SEVERE,
                     "Ошибка при выполнении миграций: " + e.getMessage(), e);

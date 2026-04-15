@@ -34,25 +34,31 @@ public class DbRepository {
         }
     }
 
-    public boolean add(User user) throws SQLException {
+    public Optional<Long> add(User user) throws SQLException {
         String sql = """
                 INSERT INTO "user" (username, hashed_password, salt, is_deleted)
                     VALUES (?, ?, ?, false)
                 """;
         Connection connection = connectionManager.getConnection();
 
-        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+        try (PreparedStatement preparedStatement =
+                     connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
             preparedStatement.setString(1, user.getUsername());
             preparedStatement.setString(2, user.getHashedPassword());
             preparedStatement.setString(3, user.getSalt());
 
-            int affectedRows = preparedStatement.executeUpdate();
-            return affectedRows > 0;
+            preparedStatement.executeUpdate();
+            try (ResultSet rs = preparedStatement.getGeneratedKeys()) {
+                if (rs.next()) {
+                    return Optional.of(rs.getLong(1));
+                }
+            }
         }
+        return Optional.empty();
     }
 
-    public boolean add(Vehicle vehicle) throws SQLException {
+    public Optional<Long> add(Vehicle vehicle) throws SQLException {
         String sql = """
                 INSERT INTO vehicle (name, x, y, creation_date,
                     engine_power, distance_travelled, type, fuel_type, user_id, is_deleted)
@@ -60,7 +66,8 @@ public class DbRepository {
                 """;
         Connection connection = connectionManager.getConnection();
 
-        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+        try (PreparedStatement preparedStatement =
+                     connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
             preparedStatement.setString(1, vehicle.getName());
             preparedStatement.setInt(2, vehicle.getCoordinates().getX());
@@ -72,9 +79,14 @@ public class DbRepository {
             preparedStatement.setString(8, vehicle.getFuelType().name());
             preparedStatement.setLong(9, vehicle.getUserId());
 
-            int affectedRows = preparedStatement.executeUpdate();
-            return affectedRows > 0;
+            preparedStatement.executeUpdate();
+            try (ResultSet rs = preparedStatement.getGeneratedKeys()) {
+                if (rs.next()) {
+                    return Optional.of(rs.getLong(1));
+                }
+            }
         }
+        return Optional.empty();
     }
 
     public boolean updateById(Vehicle vehicle, Long vehicleId, Long userId) throws SQLException {
@@ -221,7 +233,7 @@ public class DbRepository {
                                             resultSet.getInt("x"),
                                             resultSet.getLong("y")
                                     ),
-                                    resultSet.getDate("creation_date"),
+                                    resultSet.getTimestamp("creation_date"),
                                     resultSet.getDouble("engine_power"),
                                     resultSet.getFloat("distance_travelled"),
                                     type,

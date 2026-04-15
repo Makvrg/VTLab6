@@ -1,4 +1,4 @@
-package ru.ifmo.se.io.input.init;
+package ru.ifmo.se.repository.init;
 
 import jakarta.validation.ConstraintViolation;
 import lombok.RequiredArgsConstructor;
