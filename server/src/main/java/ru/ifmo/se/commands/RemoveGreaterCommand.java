@@ -22,8 +22,8 @@ public class RemoveGreaterCommand extends RemoveByCompareCommand {
     }
 
     @Override
-    protected boolean useService(Vehicle vehicle) {
-        return collectionService.removeGreater(vehicle);
+    protected boolean useService(Vehicle vehicle, String username) {
+        return collectionService.removeGreater(vehicle, username);
     }
 
     @Override

@@ -29,7 +29,7 @@ public class CollectionInitializer {
 
         Collection<Vehicle> vehicles;
         try {
-            //collectionService.useMigrate();
+            collectionService.useMigrate();
             vehicles = collectionService.findAllVehiclesFromDb();
 
             if (checkVehiclesFromDb(vehicles)) {
@@ -38,7 +38,7 @@ public class CollectionInitializer {
                             "Инициализация коллекции объектами Vehicle " +
                                     "из базы данных завершена успешно");
                 } else {
-                    collectionService.clearVehicles();
+                    collectionService.clearVehiclesDb();
                 }
             }
         } catch (IllegalStateException | SQLRuntimeException e) {

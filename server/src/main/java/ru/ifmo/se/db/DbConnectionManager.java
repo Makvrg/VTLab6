@@ -17,7 +17,9 @@ public final class DbConnectionManager implements ShutdownListener {
 
     public DbConnectionManager() {
         HikariConfig config = new HikariConfig();
-        config.setJdbcUrl("jdbc:postgresql://localhost:5432/studs");
+        // ssh -L 15433:localhost:5432 s501393@helios.cs.ifmo.ru -p 2222
+        // команда для прокидки SSH-тоннеля с ноутбука на Гелиос
+        config.setJdbcUrl("jdbc:postgresql://localhost:15433/studs");
         config.setUsername("s501393");
         config.setPassword("fGh4nObU1w9Qsxb0");
         config.setMaximumPoolSize(20);
@@ -25,6 +27,7 @@ public final class DbConnectionManager implements ShutdownListener {
         config.setConnectionTimeout(10000);
         config.setIdleTimeout(600000);
         config.setLeakDetectionThreshold(30000);
+        config.setDriverClassName("org.postgresql.Driver");
         dataSource = new HikariDataSource(config);
     }
 

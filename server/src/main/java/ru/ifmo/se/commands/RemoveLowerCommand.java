@@ -22,8 +22,8 @@ public class RemoveLowerCommand extends RemoveByCompareCommand {
     }
 
     @Override
-    protected boolean useService(Vehicle vehicle) {
-        return collectionService.removeLower(vehicle);
+    protected boolean useService(Vehicle vehicle, String username) {
+        return collectionService.removeLower(vehicle, username);
     }
 
     @Override

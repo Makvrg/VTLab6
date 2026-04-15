@@ -49,7 +49,7 @@ public abstract class RemoveByCompareCommand extends VehicleAwareCommand {
                         request.getUserDto().getPassword())) {
                     return new Response(false, "Команды не доступны неавторизованным пользователям");
                 }
-                if (useService(vehicle)) {
+                if (useService(vehicle, request.getUserDto().getUsername())) {
                     return new Response(true, "Прошло успешное удаление");
                 }
                 return new Response(true, "Объекты для удаления не были найдены");
@@ -65,7 +65,7 @@ public abstract class RemoveByCompareCommand extends VehicleAwareCommand {
         return new Response(false, "Отправлен некорректный запрос");
     }
 
-    protected abstract boolean useService(Vehicle vehicle);
+    protected abstract boolean useService(Vehicle vehicle, String username);
 
     protected abstract boolean checkAuth(User enteredUser, String rawPassword);
 }

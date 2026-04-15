@@ -4,10 +4,7 @@ import lombok.RequiredArgsConstructor;
 import ru.ifmo.se.db.DbConnectionManager;
 import ru.ifmo.se.entity.*;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Optional;
@@ -17,19 +14,38 @@ public class DbRepository {
 
     private final DbConnectionManager connectionManager;
 
+    public boolean existsUserByUsername(String username) throws SQLException {
+        String sql = """
+                SELECT EXISTS (SELECT 1 FROM "user"
+                                    WHERE is_deleted = false AND
+                                          username = ?) AS flag
+                """;
+        Connection connection = connectionManager.getConnection();
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+            preparedStatement.setString(1, username);
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                if (resultSet.next()) {
+                    return resultSet.getBoolean("flag");
+                } else {
+                    return false;
+                }
+            }
+        }
+    }
+
     public boolean add(User user) throws SQLException {
         String sql = """
-                INSERT INTO "user" (user_id, username, hashed_password, salt)
-                    VALUES (?, ?, ?, ?)
+                INSERT INTO "user" (username, hashed_password, salt, is_deleted)
+                    VALUES (?, ?, ?, false)
                 """;
         Connection connection = connectionManager.getConnection();
 
         try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
 
-            preparedStatement.setLong(1, user.getId());
-            preparedStatement.setString(2, user.getUsername());
-            preparedStatement.setString(3, user.getHashedPassword());
-            preparedStatement.setString(4, user.getSalt());
+            preparedStatement.setString(1, user.getUsername());
+            preparedStatement.setString(2, user.getHashedPassword());
+            preparedStatement.setString(3, user.getSalt());
 
             int affectedRows = preparedStatement.executeUpdate();
             return affectedRows > 0;
@@ -38,35 +54,36 @@ public class DbRepository {
 
     public boolean add(Vehicle vehicle) throws SQLException {
         String sql = """
-                INSERT INTO vehicle (vehicle_id, name, x, y, creation_date,
-                    engine_power, distance_travelled, type, fuel_type, user_id)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO vehicle (name, x, y, creation_date,
+                    engine_power, distance_travelled, type, fuel_type, user_id, is_deleted)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, false)
                 """;
         Connection connection = connectionManager.getConnection();
 
         try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
 
-            preparedStatement.setLong(1, vehicle.getId());
-            preparedStatement.setString(2, vehicle.getName());
-            preparedStatement.setInt(3, vehicle.getCoordinates().getX());
-            preparedStatement.setLong(4, vehicle.getCoordinates().getY());
-            preparedStatement.setDate(5, new java.sql.Date(vehicle.getCreationDate().getTime()));
-            preparedStatement.setDouble(6, vehicle.getEnginePower());
-            preparedStatement.setFloat(7, vehicle.getDistanceTravelled());
-            preparedStatement.setString(8, vehicle.getType().name());
-            preparedStatement.setString(9, vehicle.getFuelType().name());
-            preparedStatement.setLong(10, vehicle.getUserId());
+            preparedStatement.setString(1, vehicle.getName());
+            preparedStatement.setInt(2, vehicle.getCoordinates().getX());
+            preparedStatement.setLong(3, vehicle.getCoordinates().getY());
+            preparedStatement.setTimestamp(4, new Timestamp(vehicle.getCreationDate().getTime()));
+            preparedStatement.setDouble(5, vehicle.getEnginePower());
+            preparedStatement.setFloat(6, vehicle.getDistanceTravelled());
+            preparedStatement.setString(7, vehicle.getType().name());
+            preparedStatement.setString(8, vehicle.getFuelType().name());
+            preparedStatement.setLong(9, vehicle.getUserId());
 
             int affectedRows = preparedStatement.executeUpdate();
             return affectedRows > 0;
         }
     }
 
-    public boolean updateById(Vehicle vehicle, Long id) throws SQLException {
+    public boolean updateById(Vehicle vehicle, Long vehicleId, Long userId) throws SQLException {
         String sql = """
                 UPDATE vehicle SET name = ?, x = ?, y = ?, engine_power = ?,
                     distance_travelled = ?, type = ?, fuel_type = ?
-                        WHERE vehicle_id = ?
+                        WHERE is_deleted = false AND
+                              vehicle_id = ? AND
+                              user_id = ?
                 """;
         Connection connection = connectionManager.getConnection();
 
@@ -79,23 +96,44 @@ public class DbRepository {
             preparedStatement.setFloat(5, vehicle.getDistanceTravelled());
             preparedStatement.setString(6, vehicle.getType().name());
             preparedStatement.setString(7, vehicle.getFuelType().name());
-            preparedStatement.setLong(8, id);
+            preparedStatement.setLong(8, vehicleId);
+            preparedStatement.setLong(9, userId);
 
             int affectedRows = preparedStatement.executeUpdate();
             return affectedRows > 0;
         }
     }
 
-    public boolean deleteVehicleById(Long id) throws SQLException {
+    public boolean softDeleteVehicleById(Long vehicleId, Long userId) throws SQLException {
         String sql = """
-                DELETE FROM vehicle
-                    WHERE vehicle_id = ?
+                UPDATE vehicle SET is_deleted = true
+                    WHERE is_deleted = false AND
+                          vehicle_id = ? AND
+                          user_id = ?
                 """;
         Connection connection = connectionManager.getConnection();
 
         try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
 
-            preparedStatement.setLong(1, id);
+            preparedStatement.setLong(1, vehicleId);
+            preparedStatement.setLong(2, userId);
+
+            int affectedRows = preparedStatement.executeUpdate();
+            return affectedRows > 0;
+        }
+    }
+
+    public boolean softDeleteVehicles(Long userId) throws SQLException {
+        String sql = """
+                UPDATE vehicle SET is_deleted = true
+                    WHERE is_deleted = false AND
+                          user_id = ?
+                """;
+        Connection connection = connectionManager.getConnection();
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+
+            preparedStatement.setLong(1, userId);
 
             int affectedRows = preparedStatement.executeUpdate();
             return affectedRows > 0;
@@ -115,7 +153,8 @@ public class DbRepository {
     public Optional<Long> findUserIdByUsername(String username) throws SQLException {
         String sql = """
                 SELECT user_id FROM "user"
-                    WHERE username = ?
+                    WHERE is_deleted = false AND
+                          username = ?
                 """;
         Connection connection = connectionManager.getConnection();
 
@@ -134,7 +173,8 @@ public class DbRepository {
     public Optional<String> findUsernameById(Long id) throws SQLException {
         String sql = """
                 SELECT username FROM "user"
-                    WHERE user_id = ?
+                    WHERE is_deleted = false AND
+                          user_id = ?
                 """;
         Connection connection = connectionManager.getConnection();
 
@@ -151,7 +191,10 @@ public class DbRepository {
     }
 
     public Collection<Vehicle> findAllVehicles() throws SQLException {
-        String sql = "SELECT * FROM vehicle";
+        String sql = """
+                SELECT * FROM vehicle
+                    WHERE is_deleted = false
+                """;
         Connection connection = connectionManager.getConnection();
 
         try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
@@ -193,7 +236,10 @@ public class DbRepository {
     }
 
     public Collection<User> findAllUsers() throws SQLException {
-        String sql = "SELECT * FROM \"user\"";
+        String sql = """
+                SELECT * FROM "user"
+                    WHERE is_deleted = false
+                """;
         Connection connection = connectionManager.getConnection();
 
         try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {

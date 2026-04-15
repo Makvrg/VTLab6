@@ -47,11 +47,13 @@ public class MaxByEnginePowerCommand extends Command {
             }
             Optional<Vehicle> vehicle = collectionService.maxByEnginePower();
             if (vehicle.isPresent()) {
-                return new ResponseVehicle(true, "",
+                return new ResponseVehicle(
+                        true, "",
                         VehicleMapper.toDto(vehicle.get(),
                                 collectionService.findUsernameById(
                                         vehicle.get().getUserId()
-                                ).get()));
+                                ).get())
+                );
             } else {
                 return new ResponseVehicle(true, "", null);
             }

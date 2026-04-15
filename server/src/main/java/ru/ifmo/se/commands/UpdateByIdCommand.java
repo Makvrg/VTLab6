@@ -54,7 +54,7 @@ public class UpdateByIdCommand extends VehicleAwareCommand {
                         request.getUserDto().getPassword())) {
                     return new Response(false, "Команды не доступны неавторизованным пользователям");
                 }
-                if (collectionService.updateById(vehicle, id)) {
+                if (collectionService.updateById(vehicle, id, request.getUserDto().getUsername())) {
                     return new Response(true, "Объект успешно обновлён");
                 }
                 return new Response(true,

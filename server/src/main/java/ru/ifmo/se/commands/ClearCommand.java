@@ -36,7 +36,7 @@ public class ClearCommand extends Command {
                     request.getUserDto().getPassword())) {
                 return new Response(false, "Команды не доступны неавторизованным пользователям");
             }
-            if (collectionService.clearVehicles()) {
+            if (collectionService.clearVehicles(request.getUserDto().getUsername())) {
                 return new Response(true, "");
             } else {
                 return new Response(false, "");

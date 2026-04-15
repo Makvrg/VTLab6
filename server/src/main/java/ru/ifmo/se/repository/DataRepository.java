@@ -5,7 +5,6 @@ import ru.ifmo.se.collection.CollectionWithInfo;
 import ru.ifmo.se.entity.User;
 import ru.ifmo.se.entity.Vehicle;
 import ru.ifmo.se.service.exceptions.MaxEnginePowerNotExistException;
-import ru.ifmo.se.service.exceptions.MaxIdNotExistException;
 
 import java.sql.SQLException;
 import java.util.*;
@@ -32,21 +31,8 @@ public class DataRepository {
         return collectionWithInfo.getCountOfElements();
     }
 
-    public long findVehicleMaxId() {
-        if (collectionWithInfo.getCountOfElements() > 0) {
-            return collectionWithInfo.getCollection().stream()
-                    .mapToLong(Vehicle::getId)
-                    .max()
-                    .orElseThrow(MaxIdNotExistException::new);
-        }
-        throw new MaxIdNotExistException();
-    }
-
-    public long findUserMaxId() throws SQLException {
-        return dbRepository.findAllUsers().stream()
-                .mapToLong(User::getId)
-                .max()
-                .orElseThrow(MaxIdNotExistException::new);
+    public boolean existsUserByUsername(String username) throws SQLException {
+        return dbRepository.existsUserByUsername(username);
     }
 
     public Optional<Long> findUserIdByUsername(String username) throws SQLException {
@@ -62,6 +48,10 @@ public class DataRepository {
             return collectionWithInfo.getCollection().add(vehicle);
         }
         return false;
+    }
+
+    public boolean addInitVehicle(Vehicle vehicle) {
+        return collectionWithInfo.getCollection().add(vehicle);
     }
 
     public boolean add(User user) throws SQLException {
@@ -96,10 +86,10 @@ public class DataRepository {
         return Optional.empty();
     }
 
-    public boolean updateById(long id, Vehicle newData) throws SQLException {
-        if (dbRepository.updateById(newData, id)) {
+    public boolean updateById(long vehicleId, Vehicle newData, Long userId) throws SQLException {
+        if (dbRepository.updateById(newData, vehicleId, userId)) {
             for (Vehicle vehicle : collectionWithInfo.getCollection()) {
-                if (vehicle.getId() == id) {
+                if (vehicle.getId() == vehicleId && vehicle.getUserId().equals(userId)) {
                     updateVehicle(vehicle, newData);
                     return true;
                 }
@@ -130,10 +120,12 @@ public class DataRepository {
         return dbRepository.findAllUsers();
     }
 
-    public boolean deleteVehicleById(long id) throws SQLException {
-        if (dbRepository.deleteVehicleById(id)) {
-            for (Iterator<Vehicle> itr = collectionWithInfo.getCollection().iterator(); itr.hasNext(); ) {
-                if (itr.next().getId() == id) {
+    public boolean softDeleteVehicleById(long vehicleId, Long userId) throws SQLException {
+        if (dbRepository.softDeleteVehicleById(vehicleId, userId)) {
+            for (Iterator<Vehicle> itr = collectionWithInfo.getCollection()
+                    .iterator(); itr.hasNext(); ) {
+                Vehicle currentVeh = itr.next();
+                if (currentVeh.getId() == vehicleId && currentVeh.getUserId().equals(userId)) {
                     itr.remove();
                     return true;
                 }
@@ -143,7 +135,22 @@ public class DataRepository {
         return false;
     }
 
-    public boolean deleteAllVehicles() throws SQLException {
+    public boolean softDeleteVehicles(Long userId) throws SQLException {
+        if (dbRepository.softDeleteVehicles(userId)) {
+            for (Iterator<Vehicle> itr = collectionWithInfo.getCollection()
+                    .iterator(); itr.hasNext(); ) {
+                Vehicle currentVeh = itr.next();
+                if (currentVeh.getUserId().equals(userId)) {
+                    itr.remove();
+                    return true;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+    public boolean truncateVehicles() throws SQLException {
         if (dbRepository.truncateVehicles()) {
             collectionWithInfo.getCollection().clear();
             return true;

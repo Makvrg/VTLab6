@@ -13,6 +13,7 @@ import ru.ifmo.se.repository.DataRepository;
 import ru.ifmo.se.service.exceptions.*;
 
 import java.security.NoSuchAlgorithmException;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.*;
 
@@ -30,41 +31,28 @@ public class CollectionService {
     }
 
     public boolean registration(User newUser, String rawPassword) {
-        try {
-            connectionManager.beginTransaction(8);
+        return executeInTransaction(
+                Connection.TRANSACTION_SERIALIZABLE,
+                () -> {
+                    if (dataRepository.existsUserByUsername(newUser.getUsername())) {
+                        return false;
+                    }
 
-            for (User user : dataRepository.findAllUsers()) {
-                if (newUser.getUsername().equals(user.getUsername())) {
-                    return false;
+                    String salt = PasswordHasher.generateSalt();
+                    newUser.setSalt(salt);
+                    try {
+                        newUser.setHashedPassword(PasswordHasher.hashPassword(rawPassword, salt));
+                    } catch (NoSuchAlgorithmException e) {
+                        throw new NoSuchAlgorithmRuntimeException("Не найден алгоритм хеширования" +
+                                e.getMessage());
+                    }
+                    return dataRepository.add(newUser);
                 }
-            }
-
-            newUser.setId(createNewUserId());
-            String salt = PasswordHasher.generateSalt();
-            newUser.setSalt(salt);
-            try {
-                newUser.setHashedPassword(PasswordHasher.hashPassword(rawPassword, salt));
-            } catch (NoSuchAlgorithmException e) {
-                throw new NoSuchAlgorithmRuntimeException("Не найден алгоритм хеширования" +
-                        e.getMessage());
-            }
-            return dataRepository.add(newUser);
-        } catch (SQLException e) {
-            throw new SQLRuntimeException(e.getMessage());
-        } finally {
-            try {
-                connectionManager.commit();
-                connectionManager.close();
-            } catch (SQLException e) {
-                throw new SQLRuntimeException(e.getMessage());
-            }
-        }
+        );
     }
 
     public boolean auth(User enteredUser, String rawPassword) {
         try {
-            connectionManager.beginTransaction(8);
-
             for (User user: dataRepository.findAllUsers()) {
                 if (enteredUser.getUsername().equals(user.getUsername())) {
                     try {
@@ -79,13 +67,6 @@ public class CollectionService {
             return false;
         } catch (SQLException e) {
             throw new SQLRuntimeException(e.getMessage());
-        } finally {
-            try {
-                connectionManager.commit();
-                connectionManager.close();
-            } catch (SQLException e) {
-                throw new SQLRuntimeException(e.getMessage());
-            }
         }
     }
 
@@ -101,91 +82,48 @@ public class CollectionService {
     }
 
     public boolean add(Vehicle vehicle, String username) {
-        try {
-            connectionManager.beginTransaction(8);
-            vehicle.setId(createNewVehicleId());
-            vehicle.setCreationDate(new Date());
-            Optional<Long> userId = dataRepository.findUserIdByUsername(username);
-            if (userId.isPresent()) {
-                vehicle.setUserId(userId.get());
-            } else {
-                return false;
-            }
-            return dataRepository.add(vehicle);
-        } catch (SQLException e) {
-            throw new SQLRuntimeException(e.getMessage());
-        } finally {
-            try {
-                connectionManager.commit();
-                connectionManager.close();
-            } catch (SQLException e) {
-                throw new SQLRuntimeException(e.getMessage());
-            }
-        }
+        return executeInTransaction(
+                Connection.TRANSACTION_SERIALIZABLE,
+                () -> {
+                    try {
+                        Optional<Long> userId = dataRepository.findUserIdByUsername(username);
+                        if (userId.isPresent()) {
+                            vehicle.setUserId(userId.get());
+                        } else {
+                            return false;
+                        }
+                        vehicle.setCreationDate(new Date());
+                        return dataRepository.add(vehicle);
+                    } catch (SQLException e) {
+                        throw new SQLRuntimeException(e.getMessage());
+                    }
+                }
+        );
     }
 
     public boolean addInitVehicle(Vehicle vehicle) {
-        try {
-            connectionManager.beginTransaction(8);
-            if (vehicle.getCreationDate().after(new Date())) {
-                throw new CreationDateIsAfterNowException(
-                        "Передана дата и время создания объекта Vehicle из будущего");
-            }
-            return dataRepository.add(vehicle);
-        } catch (SQLException e) {
-            throw new SQLRuntimeException(e.getMessage());
-        } finally {
-            try {
-                connectionManager.commit();
-                connectionManager.close();
-            } catch (SQLException e) {
-                throw new SQLRuntimeException(e.getMessage());
-            }
+        if (vehicle.getCreationDate().after(new Date())) {
+            throw new CreationDateIsAfterNowException(
+                    "Передана дата и время создания объекта Vehicle из будущего");
         }
-    }
-
-    private long createNewVehicleId() {
-        try {
-            synchronized (dataRepository.findAllVehicles()) {
-                return dataRepository.findVehicleMaxId() + 1L;
-            }
-        } catch (MaxIdNotExistException e) {
-            return 1L;
-        }
-    }
-
-    private long createNewUserId() throws SQLException {
-        try {
-            synchronized (dataRepository.findAllVehicles()) {
-                return dataRepository.findUserMaxId() + 1L;
-            }
-        } catch (MaxIdNotExistException e) {
-            return 1L;
+        synchronized (dataRepository.findAllVehicles()) {
+            return dataRepository.addInitVehicle(vehicle);
         }
     }
 
     public Optional<String> findUsernameById(Long id) {
         try {
-            connectionManager.beginTransaction(4);
             return dataRepository.findUsernameById(id);
         } catch (SQLException e) {
-        throw new SQLRuntimeException(e.getMessage());
-    } finally {
-        try {
-            connectionManager.commit();
-            connectionManager.close();
-        } catch (SQLException e) {
             throw new SQLRuntimeException(e.getMessage());
-        }
         }
     }
 
     public boolean addIfMin(Vehicle vehicle, String username) {
         synchronized (dataRepository.findAllVehicles()) {
             Optional<Vehicle> minVehicle = dataRepository.findMinVehicle();
-            if (minVehicle.isPresent() && vehicle.compareTo(minVehicle.get()) < 0) {
-                return add(vehicle, username);
-            } else if (minVehicle.isEmpty()) {
+            if (minVehicle.isPresent() && vehicle.compareTo(minVehicle.get()) < 0 ||
+                    minVehicle.isEmpty()) {
                 return add(vehicle, username);
             } else {
                 return false;
@@ -193,65 +131,69 @@ public class CollectionService {
         }
     }
 
-    public boolean updateById(Vehicle vehicle, Long id) {
-        try {
-            connectionManager.beginTransaction(4);
-            synchronized (dataRepository.findAllVehicles()) {
-                return dataRepository.updateById(id, vehicle);
-            }
-        } catch (SQLException e) {
-            throw new SQLRuntimeException(e.getMessage());
-        } finally {
+    public boolean updateById(Vehicle newData, Long vehicleId, String username) {
             try {
-                connectionManager.commit();
-                connectionManager.close();
+                Optional<Long> userId = dataRepository.findUserIdByUsername(username);
+                if (userId.isEmpty()) {
+                    return false;
+                }
+                synchronized (dataRepository.findAllVehicles()) {
+                    return dataRepository.updateById(vehicleId, newData, userId.get());
+                }
             } catch (SQLException e) {
                 throw new SQLRuntimeException(e.getMessage());
             }
-        }
     }
 
     public Collection<Vehicle> showVehicles() {
         return dataRepository.findAllVehicles();
     }
 
-    public boolean removeVehicleById(long id) {
-        try {
-            connectionManager.beginTransaction(4);
-            try {
-                synchronized (dataRepository.findAllVehicles()) {
-                    return dataRepository.deleteVehicleById(id);
+    public boolean removeVehicleById(long vehicleId, String username) {
+        return executeInTransaction(
+                Connection.TRANSACTION_READ_COMMITTED,
+                () -> {
+                    Optional<Long> userId = dataRepository.findUserIdByUsername(username);
+                    if (userId.isEmpty()) {
+                        return false;
+                    }
+                    try {
+                        synchronized (dataRepository.findAllVehicles()) {
+                            return dataRepository.softDeleteVehicleById(vehicleId, userId.get());
+                        }
+                    } catch (IllegalStateException e) {
+                        throw new RemoveByIdIllegalStateException(e.getMessage());
+                    }
                 }
-            } catch (IllegalStateException e) {
-                throw new RemoveByIdIllegalStateException(e.getMessage());
-            }
-        } catch (SQLException e) {
-            throw new SQLRuntimeException(e.getMessage());
-        } finally {
-            try {
-                connectionManager.commit();
-                connectionManager.close();
-            } catch (SQLException e) {
-                throw new SQLRuntimeException(e.getMessage());
-            }
-        }
+        );
     }
 
-    public boolean clearVehicles() {
+    public boolean clearVehicles(String username) {
+        return executeInTransaction(
+                Connection.TRANSACTION_SERIALIZABLE,
+                () -> {
+                    Optional<Long> userId = dataRepository.findUserIdByUsername(username);
+                    if (userId.isEmpty()) {
+                        return false;
+                    }
+                    try {
+                        synchronized (dataRepository.findAllVehicles()) {
+                            return dataRepository.softDeleteVehicles(userId.get());
+                        }
+                    } catch (IllegalStateException e) {
+                        throw new RemoveByIdIllegalStateException(e.getMessage());
+                    }
+                }
+        );
+    }
+
+    public boolean clearVehiclesDb() {
         try {
-            connectionManager.beginTransaction(8);
             synchronized (dataRepository.findAllVehicles()) {
-                return dataRepository.deleteAllVehicles();
+                return dataRepository.truncateVehicles();
             }
         } catch (SQLException e) {
             throw new SQLRuntimeException(e.getMessage());
-        } finally {
-            try {
-                connectionManager.commit();
-                connectionManager.close();
-            } catch (SQLException e) {
-                throw new SQLRuntimeException(e.getMessage());
-            }
         }
     }
 
@@ -261,26 +203,18 @@ public class CollectionService {
 
     public Collection<Vehicle> findAllVehiclesFromDb() {
         try {
-            connectionManager.beginTransaction(8);
             return dataRepository.findAllVehiclesFromDb();
         } catch (SQLException e) {
             throw new SQLRuntimeException(e.getMessage());
-        } finally {
-            try {
-                connectionManager.commit();
-                connectionManager.close();
-            } catch (SQLException e) {
-                throw new SQLRuntimeException(e.getMessage());
-            }
         }
     }
 
-    public boolean removeGreater(Vehicle enteredVehicle) {
+    public boolean removeGreater(Vehicle enteredVehicle, String username) {
         synchronized (dataRepository.findAllVehicles()) {
             boolean returned = false;
             for (Vehicle vehicle : dataRepository.findAllVehicles()) {
                 if (vehicle.compareTo(enteredVehicle) > 0) {
-                    removeVehicleById(vehicle.getId());
+                    removeVehicleById(vehicle.getId(), username);
                     returned = true;
                 }
             }
@@ -288,12 +222,12 @@ public class CollectionService {
         }
     }
 
-    public boolean removeLower(Vehicle enteredVehicle) {
+    public boolean removeLower(Vehicle enteredVehicle, String username) {
         synchronized (dataRepository.findAllVehicles()) {
             boolean returned = false;
             for (Vehicle vehicle : dataRepository.findAllVehicles()) {
                 if (vehicle.compareTo(enteredVehicle) < 0) {
-                    removeVehicleById(vehicle.getId());
+                    removeVehicleById(vehicle.getId(), username);
                     returned = true;
                 }
             }
@@ -342,5 +276,46 @@ public class CollectionService {
 
     private void shutdown() {
         listeners.forEach(ShutdownListener::onShutdown);
+    }
+
+    private  <T> T executeInTransaction(int isolationLevel, TransactionalOperation<T> operation) {
+        RuntimeException savedExc = null;
+        try {
+            connectionManager.beginTransaction(isolationLevel);
+            T result = operation.execute();
+            connectionManager.commit();
+            return result;
+        } catch (SQLException e) {
+            try {
+                connectionManager.rollback();
+            } catch (SQLException rollbackEx) {
+                throw new SQLRuntimeException(e.getMessage() +
+                        " and Rollback failed " + rollbackEx.getMessage());
+            }
+            throw new SQLRuntimeException(e.getMessage());
+        } catch (RuntimeException e) {
+            savedExc = e;
+            try {
+                connectionManager.rollback();
+            } catch (SQLException rollbackEx) {
+                throw e;
+            }
+            throw e;
+        } finally {
+            try {
+                connectionManager.close();
+            } catch (SQLException closeEx) {
+                if (savedExc == null) {
+                    throw new SQLRuntimeException("Close failed " + closeEx.getMessage());
+                } else {
+                    throw savedExc;
+                }
+            }
+        }
+    }
+
+    @FunctionalInterface
+    public interface TransactionalOperation<T> {
+        T execute() throws SQLException;
     }
 }

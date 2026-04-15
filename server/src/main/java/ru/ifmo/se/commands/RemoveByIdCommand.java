@@ -42,7 +42,7 @@ public class RemoveByIdCommand extends Command {
                         request.getUserDto().getPassword())) {
                     return new Response(false, "Команды не доступны неавторизованным пользователям");
                 }
-                if (collectionService.removeVehicleById(id)) {
+                if (collectionService.removeVehicleById(id, request.getUserDto().getUsername())) {
                     return new Response(true,
                             "Объект Vehicle успешно удалён из коллекции по заданному id");
                 }

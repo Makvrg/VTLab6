@@ -45,7 +45,7 @@ public class Pipeline implements Runnable, ShutdownListener {
                         !commandName.equals(commandInvoker.getExitCommandName()) &&
                         !commandName.equals(commandInvoker.getHelpCommandName())) {
                     printer.forcePrintln(
-                            "Для этой команды необходимо пройти аутентификацию"
+                            "Для начала работы необходимо пройти аутентификацию"
                     );
                     continue;
                 }
