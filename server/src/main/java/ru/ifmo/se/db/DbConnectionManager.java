@@ -19,13 +19,14 @@ public final class DbConnectionManager implements ShutdownListener {
         HikariConfig config = new HikariConfig();
         // ssh -L 15433:localhost:5432 s501393@helios.cs.ifmo.ru -p 2222
         // команда для прокидки SSH-тоннеля с ноутбука на Гелиос
-        config.setJdbcUrl("jdbc:postgresql://localhost:15433/studs");
+        // в setJdbcUrl() порт 15433 для работы с ноутбука, а 5432 для работы на Гелиосе
+        config.setJdbcUrl("jdbc:postgresql://localhost:5432/studs");
         config.setUsername("s501393");
         config.setPassword("fGh4nObU1w9Qsxb0");
-        config.setMaximumPoolSize(20);
+        config.setMaximumPoolSize(15);
         config.setMinimumIdle(5);
-        config.setConnectionTimeout(10000);
-        config.setIdleTimeout(600000);
+        config.setConnectionTimeout(20000);
+        config.setIdleTimeout(60000);
         config.setLeakDetectionThreshold(30000);
         config.setDriverClassName("org.postgresql.Driver");
         dataSource = new HikariDataSource(config);
@@ -60,8 +61,9 @@ public final class DbConnectionManager implements ShutdownListener {
         try {
             conn.commit();
         } finally {
-            conn.setAutoCommit(true);
             connectionHolder.remove();
+            conn.setAutoCommit(true);
+            conn.close();
         }
     }
 
@@ -76,8 +78,9 @@ public final class DbConnectionManager implements ShutdownListener {
         try {
             conn.rollback();
         } finally {
-            conn.setAutoCommit(true);
             connectionHolder.remove();
+            conn.setAutoCommit(true);
+            conn.close();
         }
     }
 
@@ -89,9 +92,9 @@ public final class DbConnectionManager implements ShutdownListener {
                     conn.rollback();
                 }
             } finally {
+                connectionHolder.remove();
                 conn.setAutoCommit(true);
                 conn.close();
-                connectionHolder.remove();
             }
         }
     }

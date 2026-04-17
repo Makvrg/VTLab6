@@ -7,6 +7,7 @@ import ru.ifmo.se.entity.*;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.Optional;
 
 @RequiredArgsConstructor
@@ -233,7 +234,7 @@ public class DbRepository {
                                             resultSet.getInt("x"),
                                             resultSet.getLong("y")
                                     ),
-                                    resultSet.getTimestamp("creation_date"),
+                                    new Date(resultSet.getTimestamp("creation_date").getTime()),
                                     resultSet.getDouble("engine_power"),
                                     resultSet.getFloat("distance_travelled"),
                                     type,

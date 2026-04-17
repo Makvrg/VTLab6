@@ -30,7 +30,8 @@ public class NetworkService implements Runnable, ShutdownListener {
     private final CommandInvoker commandInvoker;
 
     // Синхронизированная коллекция для буферов сборки сообщений
-    private final Map<Long, ReassemblyBuffer> incoming = Collections.synchronizedMap(new HashMap<>());
+    private final Map<Long, ReassemblyBuffer> incoming =
+            Collections.synchronizedMap(new HashMap<>());
 
     // Пул для чтения и сборки фрагментов (CachedThreadPool)
     private final ExecutorService readPool = Executors.newCachedThreadPool();
@@ -76,11 +77,9 @@ public class NetworkService implements Runnable, ShutdownListener {
                     try {
                         frame = UdpCodec.decode(buffer);
                     } catch (Exception e) {
-                        // Пропускаем ошибочные фреймы
                         continue;
                     }
 
-                    // Передаём обработку фрейма в CachedThreadPool
                     final DatagramChannel channelForTask = readyChannel;
                     final InetSocketAddress addressForTask = clientAddress;
                     readPool.submit(() -> processFrame(frame, addressForTask, channelForTask));
@@ -99,7 +98,9 @@ public class NetworkService implements Runnable, ShutdownListener {
      * Обработка одного UDP-фрейма: добавление в буфер сборки,
      * при завершении сообщения – передача в ForkJoinPool.
      */
-    private void processFrame(UdpFrame frame, InetSocketAddress clientAddress, DatagramChannel channel) {
+    private void processFrame(UdpFrame frame,
+                              InetSocketAddress clientAddress,
+                              DatagramChannel channel) {
         try {
             ReassemblyBuffer reassembly = incoming.computeIfAbsent(
                     frame.messageId(),
@@ -110,38 +111,30 @@ public class NetworkService implements Runnable, ShutdownListener {
 
             if (!reassembly.isComplete()) return;
 
-            // Сообщение полностью собрано – удаляем буфер
             incoming.remove(frame.messageId());
 
             byte[] rawData = reassembly.assemble();
 
-            // Передаём десериализацию и обработку в ForkJoinPool
-            processingPool.submit(() -> handleRequest(rawData, clientAddress, channel, frame.messageId()));
+            processingPool.submit(
+                    () -> handleRequest(rawData, clientAddress, channel, frame.messageId())
+            );
         } catch (Exception e) {
             AppLogger.LOGGER.log(Level.WARNING, "Ошибка при сборке фреймов", e);
         }
     }
 
-    /**
-     * Десериализация запроса, вызов команды и запуск потока для отправки ответа.
-     */
     private void handleRequest(byte[] rawData, InetSocketAddress clientAddress,
                                DatagramChannel channel, long messageId) {
         try {
             Request request = (Request) Serializator.deserialize(ByteBuffer.wrap(rawData));
             Response response = commandInvoker.invokeCommand(request);
 
-            // Отправка ответа в отдельном новом потоке
             new Thread(() -> sendResponse(response, clientAddress, channel, messageId)).start();
         } catch (Exception e) {
             AppLogger.LOGGER.log(Level.SEVERE, "Ошибка обработки запроса от " + clientAddress, e);
         }
     }
 
-    /**
-     * Сериализация ответа, разбивка на фреймы и отправка через DatagramChannel.
-     * Доступ к каналу синхронизирован, чтобы избежать конфликтов при параллельной отправке.
-     */
     private void sendResponse(Response response, InetSocketAddress clientAddress,
                               DatagramChannel channel, long messageId) {
         try {
@@ -160,13 +153,9 @@ public class NetworkService implements Runnable, ShutdownListener {
         }
     }
 
-    /**
-     * Корректное завершение пулов потоков при остановке сервера.
-     */
     private void shutdownPools() {
         readPool.shutdown();
         processingPool.shutdown();
-        // Принудительно завершаем потоки, если нужно – можно добавить awaitTermination
     }
 
     @Override

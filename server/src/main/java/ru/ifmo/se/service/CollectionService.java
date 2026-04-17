@@ -32,7 +32,7 @@ public class CollectionService {
 
     public boolean registration(User newUser, String rawPassword) {
         return executeInTransaction(
-                Connection.TRANSACTION_SERIALIZABLE,
+            Connection.TRANSACTION_SERIALIZABLE,
                 () -> {
                     if (dataRepository.existsUserByUsername(newUser.getUsername())) {
                         return false;
@@ -41,10 +41,11 @@ public class CollectionService {
                     String salt = PasswordHasher.generateSalt();
                     newUser.setSalt(salt);
                     try {
-                        newUser.setHashedPassword(PasswordHasher.hashPassword(rawPassword, salt));
+                        newUser.setHashedPassword(
+                                PasswordHasher.hashPassword(rawPassword, salt));
                     } catch (NoSuchAlgorithmException e) {
-                        throw new NoSuchAlgorithmRuntimeException("Не найден алгоритм хеширования" +
-                                e.getMessage());
+                        throw new NoSuchAlgorithmRuntimeException(
+                                "Не найден алгоритм хеширования" + e.getMessage());
                     }
                     return dataRepository.add(newUser).isPresent();
                 }
@@ -52,22 +53,22 @@ public class CollectionService {
     }
 
     public boolean auth(User enteredUser, String rawPassword) {
-        try {
-            for (User user: dataRepository.findAllUsers()) {
-                if (enteredUser.getUsername().equals(user.getUsername())) {
-                    try {
-                        return PasswordHasher.verifyPassword(
-                                rawPassword, user.getSalt(), user.getHashedPassword());
-                    } catch (NoSuchAlgorithmException e) {
-                        throw new NoSuchAlgorithmRuntimeException(
-                                "Не найден алгоритм хеширования" + e.getMessage());
+        return executeNotInTransaction(
+                () -> {
+                    for (User user : dataRepository.findAllUsers()) {
+                        if (enteredUser.getUsername().equals(user.getUsername())) {
+                            try {
+                                return PasswordHasher.verifyPassword(
+                                        rawPassword, user.getSalt(), user.getHashedPassword());
+                            } catch (NoSuchAlgorithmException e) {
+                                throw new NoSuchAlgorithmRuntimeException(
+                                        "Не найден алгоритм хеширования" + e.getMessage());
+                            }
+                        }
                     }
+                    return false;
                 }
-            }
-            return false;
-        } catch (SQLException e) {
-            throw new SQLRuntimeException(e.getMessage());
-        }
+        );
     }
 
     public CollectionInfoDto info() {
@@ -112,11 +113,7 @@ public class CollectionService {
     }
 
     public Optional<String> findUsernameById(Long id) {
-        try {
-            return dataRepository.findUsernameById(id);
-        } catch (SQLException e) {
-            throw new SQLRuntimeException(e.getMessage());
-        }
+        return executeNotInTransaction(() -> dataRepository.findUsernameById(id));
     }
 
     public boolean addIfMin(Vehicle vehicle, String username) {
@@ -132,17 +129,17 @@ public class CollectionService {
     }
 
     public boolean updateById(Vehicle newData, Long vehicleId, String username) {
-        try {
-            Optional<Long> userId = dataRepository.findUserIdByUsername(username);
-            if (userId.isEmpty()) {
-                return false;
-            }
-            synchronized (dataRepository.findAllVehicles()) {
-                return dataRepository.updateById(vehicleId, newData, userId.get());
-            }
-        } catch (SQLException e) {
-            throw new SQLRuntimeException(e.getMessage());
-        }
+        return executeNotInTransaction(
+                () -> {
+                    Optional<Long> userId = dataRepository.findUserIdByUsername(username);
+                    if (userId.isEmpty()) {
+                        return false;
+                    }
+                    synchronized (dataRepository.findAllVehicles()) {
+                        return dataRepository.updateById(vehicleId, newData, userId.get());
+                    }
+                }
+        );
     }
 
     public Collection<Vehicle> showVehicles() {
@@ -188,29 +185,26 @@ public class CollectionService {
     }
 
     public boolean clearVehiclesDb() {
-        try {
-            synchronized (dataRepository.findAllVehicles()) {
-                return dataRepository.truncateVehicles();
-            }
-        } catch (SQLException e) {
-            throw new SQLRuntimeException(e.getMessage());
-        }
+        return executeNotInTransaction(
+                () -> {
+                    synchronized (dataRepository.findAllVehicles()) {
+                        return dataRepository.truncateVehicles();
+                    }
+                }
+        );
     }
 
     public void useMigrate() {
-        try {
-            migrator.migrate(connectionManager.getConnection());
-        } catch (SQLException e) {
-            throw new SQLRuntimeException(e.getMessage());
-        }
+        executeNotInTransaction(
+                () -> {
+                    migrator.migrate(connectionManager.getConnection());
+                    return null;
+                }
+        );
     }
 
     public Collection<Vehicle> findAllVehiclesFromDb() {
-        try {
-            return dataRepository.findAllVehiclesFromDb();
-        } catch (SQLException e) {
-            throw new SQLRuntimeException(e.getMessage());
-        }
+        return executeNotInTransaction(dataRepository::findAllVehiclesFromDb);
     }
 
     public boolean removeGreater(Vehicle enteredVehicle, String username) {
@@ -282,7 +276,33 @@ public class CollectionService {
         listeners.forEach(ShutdownListener::onShutdown);
     }
 
-    private <T> T executeInTransaction(int isolationLevel, TransactionalOperation<T> operation) {
+    private <T> T executeNotInTransaction(Operation<T> operation) {
+        RuntimeException savedExc = null;
+        try {
+            return operation.execute();
+        } catch (SQLException e) {
+            savedExc = new SQLRuntimeException(e.getMessage());
+            throw savedExc;
+        } catch (RuntimeException e) {
+            savedExc = e;
+            throw e;
+        } finally {
+            try {
+                connectionManager.close();
+            } catch (SQLException e) {
+                if (savedExc == null) {
+                    throw new SQLRuntimeException(e.getMessage());
+                } else {
+                    throw new SQLRuntimeException(
+                            savedExc.getMessage() +
+                                    " and close exception " + e.getMessage()
+                    );
+                }
+            }
+        }
+    }
+
+    private <T> T executeInTransaction(int isolationLevel, Operation<T> operation) {
         try {
             connectionManager.beginTransaction(isolationLevel);
             T result = operation.execute();
@@ -307,7 +327,7 @@ public class CollectionService {
     }
 
     @FunctionalInterface
-    public interface TransactionalOperation<T> {
+    public interface Operation<T> {
         T execute() throws SQLException;
     }
 }
